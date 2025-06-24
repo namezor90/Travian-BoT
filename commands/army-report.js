@@ -1,7 +1,10 @@
-// commands/army-report.js - Seregjelentő rendszer
+// commands/army-report.js - Seregjelentő rendszer (ÚJ LÉPCSŐS RENDSZER)
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, StringSelectMenuBuilder } = require('discord.js');
 const config = require('../config');
 const { TRIBE_UNITS, getTribeData } = require('../utils/tribe-data');
+
+// Aktív jelentések tárolása (session data)
+const activeReports = new Map();
 
 async function handleArmyCommand(message) {
     // Törzs választó dropdown
@@ -45,13 +48,13 @@ async function handleArmyCommand(message) {
 
     const reportEmbed = new EmbedBuilder()
         .setColor(config.colors.armyReport)
-        .setTitle('⚔️ Alliance Seregjelentő v2.0')
-        .setDescription('**1️⃣ Először válaszd ki a törzsedet a lenti menüből**\n\n📋 **Ezután megadhatod:**\n• 👤 Játékos és falu adatait\n• ⚔️ Egységeid számát törzsspecifikus listával')
+        .setTitle('⚔️ Alliance Seregjelentő v3.0')
+        .setDescription('**🆕 Új lépcsős rendszer!**\n\n**1️⃣ Válaszd ki a törzsedet**\n**2️⃣ Add meg a játékos adatokat**\n**3️⃣ Töltsd ki a gyalogság egységeket**\n**4️⃣ Töltsd ki a lovasság egységeket**\n**5️⃣ Automatikus beküldés**')
         .addFields(
-            { name: '🎯 Miért fontos?', value: 'A vezetőség ezzel tudja koordinálni a támadásokat és védelmet!', inline: false },
+            { name: '✨ Mi változott?', value: '• Törzsspecifikus egységlista\n• Csak számokat kell írni\n• Könnyebb és gyorsabb', inline: false },
             { name: '📊 Hova kerül?', value: 'A vezetők csatornájába automatikusan táblázatos formában.', inline: false }
         )
-        .setFooter({ text: 'Alliance Management System v2.0' })
+        .setFooter({ text: 'Alliance Management System v3.0 - Lépcsős jelentés' })
         .setTimestamp();
 
     await message.reply({ embeds: [reportEmbed], components: [selectRow] });
@@ -61,153 +64,192 @@ async function handleTribeSelection(interaction) {
     const selectedTribe = interaction.values[0];
     const tribeData = TRIBE_UNITS[selectedTribe];
 
-    // Űrlap gomb a kiválasztott törzzsel
-    const reportButton = new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId(`army_report_${selectedTribe}`)
-                .setLabel(`📊 ${tribeData.name} Seregjelentő`)
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji(tribeData.emoji)
-        );
+    // Session ID generálása
+    const sessionId = `report_${Date.now()}_${interaction.user.id}`;
+    
+    // Session adatok mentése
+    activeReports.set(sessionId, {
+        userId: interaction.user.id,
+        tribe: selectedTribe,
+        tribeData: tribeData,
+        step: 1,
+        data: {},
+        createdAt: new Date()
+    });
 
-    const confirmEmbed = new EmbedBuilder()
-        .setColor(tribeData.color)
-        .setTitle(`${tribeData.emoji} ${tribeData.name} - Seregjelentő`)
-        .setDescription(`**2️⃣ Most kattints a gombra az űrlap kitöltéséhez!**\n\n⚔️ **Elérhető egységek:**`)
-        .addFields(
-            { 
-                name: '🛡️ Gyalogság', 
-                value: tribeData.units.filter(u => u.type === 'infantry').map(u => `• ${u.name}`).join('\n'), 
-                inline: true 
-            },
-            { 
-                name: '🐎 Lovasság', 
-                value: tribeData.units.filter(u => u.type === 'cavalry').map(u => `• ${u.name}`).join('\n'), 
-                inline: true 
-            },
-            { 
-                name: '🏰 Ostrom', 
-                value: tribeData.units.filter(u => u.type === 'siege').map(u => `• ${u.name}`).join('\n'), 
-                inline: true 
-            }
-        )
-        .setFooter({ text: 'Minden egységhez külön mezőt kapsz a számok megadására!' })
-        .setTimestamp();
+    // Játékos adatok modal megjelenítése
+    const modal = new ModalBuilder()
+        .setCustomId(`player_data_${sessionId}`)
+        .setTitle(`${tribeData.emoji} ${tribeData.name} - Játékos Adatok`);
 
-    await interaction.update({ embeds: [confirmEmbed], components: [reportButton] });
+    const playerName = new TextInputBuilder()
+        .setCustomId('player_name')
+        .setLabel('👤 Játékos neve')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('pl. Namezor90')
+        .setRequired(true);
+
+    const villageName = new TextInputBuilder()
+        .setCustomId('village_name')
+        .setLabel('🏘️ Falu neve és koordinátái')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('pl. Erőd (15|25)')
+        .setRequired(true);
+
+    const rows = [
+        new ActionRowBuilder().addComponents(playerName),
+        new ActionRowBuilder().addComponents(villageName)
+    ];
+
+    modal.addComponents(...rows);
+    await interaction.showModal(modal);
 }
 
-async function handleArmyReportButton(interaction) {
-    try {
-        const selectedTribe = interaction.customId.replace('army_report_', '');
-        const tribeData = TRIBE_UNITS[selectedTribe];
-        
-        const modal = new ModalBuilder()
-            .setCustomId(`army_form_${selectedTribe}`)
-            .setTitle(`${tribeData.name} - Seregjelentő`);
-
-        // Alapadatok
-        const playerName = new TextInputBuilder()
-            .setCustomId('player_name')
-            .setLabel('👤 Játékos neve')
-            .setStyle(TextInputStyle.Short)
-            .setPlaceholder('pl. Namezor90')
-            .setRequired(true);
-
-        const villageName = new TextInputBuilder()
-            .setCustomId('village_name')
-            .setLabel('🏘️ Falu neve és koordinátái')
-            .setStyle(TextInputStyle.Short)
-            .setPlaceholder('pl. Erőd (15|25)')
-            .setRequired(true);
-
-        // Egységek kategóriák szerint (rövidített labelekkel)
-        const infantryUnits = tribeData.units.filter(u => u.type === 'infantry');
-        const cavalry = new TextInputBuilder()
-            .setCustomId('infantry')
-            .setLabel(`🛡️ Gyalogság`)
-            .setStyle(TextInputStyle.Short)
-            .setPlaceholder(`pl. ${infantryUnits.map((u, i) => `${u.name}: ${(i+1)*50}`).join(', ')}`)
-            .setRequired(false);
-
-        const cavalryUnits = tribeData.units.filter(u => u.type === 'cavalry');
-        const cavalry2 = new TextInputBuilder()
-            .setCustomId('cavalry')
-            .setLabel(`🐎 Lovasság`)
-            .setStyle(TextInputStyle.Paragraph)
-            .setPlaceholder(`pl. ${cavalryUnits.map((u, i) => `${u.name}: ${(i+1)*20}`).join(', ')}`)
-            .setRequired(false);
-
-        const siegeUnits = tribeData.units.filter(u => u.type === 'siege');
-        const siege = new TextInputBuilder()
-            .setCustomId('siege')
-            .setLabel(`🏰 Ostromgépek`)
-            .setStyle(TextInputStyle.Short)
-            .setPlaceholder(`pl. ${siegeUnits.map((u, i) => `${u.name}: ${(i+1)*5}`).join(', ')}`)
-            .setRequired(false);
-
-        // Sorok hozzáadása
-        const rows = [
-            new ActionRowBuilder().addComponents(playerName),
-            new ActionRowBuilder().addComponents(villageName),
-            new ActionRowBuilder().addComponents(cavalry),
-            new ActionRowBuilder().addComponents(cavalry2),
-            new ActionRowBuilder().addComponents(siege)
-        ];
-
-        modal.addComponents(...rows);
-        await interaction.showModal(modal);
-    } catch (error) {
-        console.error('Modal hiba:', error);
-        await interaction.reply({ content: '❌ Hiba az űrlap megnyitásakor!', ephemeral: true });
+async function processPlayerData(interaction) {
+    const sessionId = interaction.customId.replace('player_data_', '');
+    const session = activeReports.get(sessionId);
+    
+    if (!session) {
+        await interaction.reply({ content: '❌ Lejárt session! Kezdd újra a jelentést.', ephemeral: true });
+        return;
     }
-}
-
-async function processArmyReport(interaction) {
-    await interaction.deferReply({ ephemeral: true });
-
-    const selectedTribe = interaction.customId.replace('army_form_', '');
-    const tribeData = TRIBE_UNITS[selectedTribe];
 
     const playerName = interaction.fields.getTextInputValue('player_name');
     const villageName = interaction.fields.getTextInputValue('village_name');
-    const infantry = interaction.fields.getTextInputValue('infantry') || '';
-    const cavalry = interaction.fields.getTextInputValue('cavalry') || '';
-    const siege = interaction.fields.getTextInputValue('siege') || '';
 
-    // Egységek parsing
-    function parseUnits(unitString, unitList) {
-        const units = {};
-        if (!unitString.trim()) return units;
+    // Adatok mentése
+    session.data.playerName = playerName;
+    session.data.villageName = villageName;
+    session.step = 2;
 
-        const patterns = [
-            /([^:,]+):\s*(\d+)/g,  // "Egység: szám"
-            /([^,\d]+)\s+(\d+)/g   // "Egység szám"
-        ];
+    // Gyalogság modal megjelenítése
+    await showInfantryModal(interaction, sessionId, session);
+}
 
-        for (const pattern of patterns) {
-            let match;
-            while ((match = pattern.exec(unitString)) !== null) {
-                const unitName = match[1].trim();
-                const count = parseInt(match[2]);
-                
-                const foundUnit = unitList.find(u => 
-                    u.name.toLowerCase().includes(unitName.toLowerCase()) ||
-                    unitName.toLowerCase().includes(u.name.toLowerCase())
-                );
-                
-                if (foundUnit && count > 0) {
-                    units[foundUnit.name] = count;
-                }
-            }
+async function showInfantryModal(interaction, sessionId, session) {
+    const tribeData = session.tribeData;
+    const infantryUnits = tribeData.units.filter(u => u.type === 'infantry');
+
+    const modal = new ModalBuilder()
+        .setCustomId(`infantry_data_${sessionId}`)
+        .setTitle(`${tribeData.emoji} Gyalogság Egységek`);
+
+    const inputs = [];
+    
+    // Minden gyalogos egységhez külön mező
+    infantryUnits.forEach((unit, index) => {
+        if (index < 5) { // Discord modal limitje: 5 mező
+            const input = new TextInputBuilder()
+                .setCustomId(`unit_${index}`)
+                .setLabel(`🛡️ ${unit.name}`)
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('0')
+                .setRequired(false);
+            
+            inputs.push(new ActionRowBuilder().addComponents(input));
         }
-        return units;
+    });
+
+    modal.addComponents(...inputs);
+    await interaction.showModal(modal);
+}
+
+async function processInfantryData(interaction) {
+    const sessionId = interaction.customId.replace('infantry_data_', '');
+    const session = activeReports.get(sessionId);
+    
+    if (!session) {
+        await interaction.reply({ content: '❌ Lejárt session! Kezdd újra a jelentést.', ephemeral: true });
+        return;
     }
 
-    const infantryUnits = parseUnits(infantry, tribeData.units.filter(u => u.type === 'infantry'));
-    const cavalryUnits = parseUnits(cavalry, tribeData.units.filter(u => u.type === 'cavalry'));
-    const siegeUnits = parseUnits(siege, tribeData.units.filter(u => u.type === 'siege'));
+    const tribeData = session.tribeData;
+    const infantryUnits = tribeData.units.filter(u => u.type === 'infantry');
+    
+    // Gyalogság adatok mentése
+    session.data.infantry = {};
+    infantryUnits.forEach((unit, index) => {
+        if (index < 5) {
+            const value = interaction.fields.getTextInputValue(`unit_${index}`) || '0';
+            const count = parseInt(value);
+            if (count > 0) {
+                session.data.infantry[unit.name] = count;
+            }
+        }
+    });
+
+    session.step = 3;
+
+    // Lovasság modal megjelenítése
+    await showCavalryModal(interaction, sessionId, session);
+}
+
+async function showCavalryModal(interaction, sessionId, session) {
+    const tribeData = session.tribeData;
+    const cavalryUnits = tribeData.units.filter(u => u.type === 'cavalry');
+
+    const modal = new ModalBuilder()
+        .setCustomId(`cavalry_data_${sessionId}`)
+        .setTitle(`${tribeData.emoji} Lovasság Egységek`);
+
+    const inputs = [];
+    
+    // Minden lovas egységhez külön mező
+    cavalryUnits.forEach((unit, index) => {
+        if (index < 5) { // Discord modal limitje: 5 mező
+            const input = new TextInputBuilder()
+                .setCustomId(`unit_${index}`)
+                .setLabel(`🐎 ${unit.name}`)
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('0')
+                .setRequired(false);
+            
+            inputs.push(new ActionRowBuilder().addComponents(input));
+        }
+    });
+
+    modal.addComponents(...inputs);
+    await interaction.showModal(modal);
+}
+
+async function processCavalryData(interaction) {
+    const sessionId = interaction.customId.replace('cavalry_data_', '');
+    const session = activeReports.get(sessionId);
+    
+    if (!session) {
+        await interaction.reply({ content: '❌ Lejárt session! Kezdd újra a jelentést.', ephemeral: true });
+        return;
+    }
+
+    const tribeData = session.tribeData;
+    const cavalryUnits = tribeData.units.filter(u => u.type === 'cavalry');
+    
+    // Lovasság adatok mentése
+    session.data.cavalry = {};
+    cavalryUnits.forEach((unit, index) => {
+        if (index < 5) {
+            const value = interaction.fields.getTextInputValue(`unit_${index}`) || '0';
+            const count = parseInt(value);
+            if (count > 0) {
+                session.data.cavalry[unit.name] = count;
+            }
+        }
+    });
+
+    session.step = 4;
+
+    // Végső jelentés összeállítása és beküldése
+    await finalizeReport(interaction, sessionId, session);
+}
+
+async function finalizeReport(interaction, sessionId, session) {
+    await interaction.deferReply({ ephemeral: true });
+
+    const { tribeData, data } = session;
+    const { playerName, villageName, infantry = {}, cavalry = {} } = data;
+
+    // Ostrom egységek (alapértelmezett: 0)
+    const siege = {};
 
     // Táblázatos megjelenítés
     function createUnitTable(units, emoji) {
@@ -229,9 +271,9 @@ async function processArmyReport(interaction) {
     }
 
     // Összesítő számítások
-    const totalInfantry = Object.values(infantryUnits).reduce((a, b) => a + b, 0);
-    const totalCavalry = Object.values(cavalryUnits).reduce((a, b) => a + b, 0);
-    const totalSiege = Object.values(siegeUnits).reduce((a, b) => a + b, 0);
+    const totalInfantry = Object.values(infantry).reduce((a, b) => a + b, 0);
+    const totalCavalry = Object.values(cavalry).reduce((a, b) => a + b, 0);
+    const totalSiege = Object.values(siege).reduce((a, b) => a + b, 0);
     const grandTotal = totalInfantry + totalCavalry + totalSiege;
 
     // Vezetői jelentés embed
@@ -245,26 +287,18 @@ async function processArmyReport(interaction) {
         );
 
     // Egységek hozzáadása ha vannak
-    if (Object.keys(infantryUnits).length > 0) {
+    if (Object.keys(infantry).length > 0) {
         leaderReportEmbed.addFields({ 
-            name: createUnitTable(infantryUnits, '🛡️').split('\n')[0], 
-            value: createUnitTable(infantryUnits, '🛡️').split('\n').slice(1).join('\n'), 
+            name: createUnitTable(infantry, '🛡️').split('\n')[0], 
+            value: createUnitTable(infantry, '🛡️').split('\n').slice(1).join('\n'), 
             inline: false 
         });
     }
 
-    if (Object.keys(cavalryUnits).length > 0) {
+    if (Object.keys(cavalry).length > 0) {
         leaderReportEmbed.addFields({ 
-            name: createUnitTable(cavalryUnits, '🐎').split('\n')[0], 
-            value: createUnitTable(cavalryUnits, '🐎').split('\n').slice(1).join('\n'), 
-            inline: false 
-        });
-    }
-
-    if (Object.keys(siegeUnits).length > 0) {
-        leaderReportEmbed.addFields({ 
-            name: createUnitTable(siegeUnits, '🏰').split('\n')[0], 
-            value: createUnitTable(siegeUnits, '🏰').split('\n').slice(1).join('\n'), 
+            name: createUnitTable(cavalry, '🐎').split('\n')[0], 
+            value: createUnitTable(cavalry, '🐎').split('\n').slice(1).join('\n'), 
             inline: false 
         });
     }
@@ -300,12 +334,16 @@ async function processArmyReport(interaction) {
             .setDescription(`A ${tribeData.emoji} **${tribeData.name}** jelentésed eljutott a vezetőséghez.`)
             .addFields(
                 { name: '📊 Összesítő', value: `**Játékos:** ${playerName}\n**Falu:** ${villageName}\n**Összes egység:** ${grandTotal.toLocaleString()}`, inline: false },
-                { name: '📅 Időpont', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true }
+                { name: '📅 Időpont', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true },
+                { name: '🆕 Rendszer', value: 'Lépcsős jelentés v3.0', inline: true }
             )
-            .setFooter({ text: 'Alliance Management System v2.0' })
+            .setFooter({ text: 'Alliance Management System v3.0' })
             .setTimestamp();
 
         await interaction.editReply({ embeds: [confirmEmbed] });
+
+        // Session törlése
+        activeReports.delete(sessionId);
 
     } catch (error) {
         console.error('Hiba a seregjelentés küldésénél:', error);
@@ -321,9 +359,28 @@ async function processArmyReport(interaction) {
     }
 }
 
+// RÉGI FUNKCIÓK (kompatibilitásért megtartva, de már nem használjuk)
+async function handleArmyReportButton(interaction) {
+    // Ez már nem használatos az új rendszerben
+    await interaction.reply({ content: '❌ Ez a funkció elavult. Használd az új lépcsős rendszert!', ephemeral: true });
+}
+
+async function processArmyReport(interaction) {
+    // Ez már nem használatos az új rendszerben  
+    await interaction.reply({ content: '❌ Ez a funkció elavult. Használd az új lépcsős rendszert!', ephemeral: true });
+}
+
 module.exports = {
     handleArmyCommand,
     handleTribeSelection,
+    processPlayerData,
+    processInfantryData,
+    processCavalryData,
+    
+    // Régi funkciók (kompatibilitásért)
     handleArmyReportButton,
-    processArmyReport
+    processArmyReport,
+    
+    // Új export-ok
+    activeReports
 };

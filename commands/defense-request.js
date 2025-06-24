@@ -1,10 +1,13 @@
-// commands/defense-request.js - Védési kérés rendszer (JAVÍTOTT)
+// commands/defense-request.js - Védési kérés rendszer + AUTOMATIKUS EMLÉKEZTETŐK
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, ChannelType, PermissionFlagsBits } = require('discord.js');
 const config = require('../config');
 const { getTribeData, getDefenseUnits } = require('../utils/tribe-data');
+const { parseTime } = require('../utils/helpers');
 
 // Aktív védési kérések tárolása (memóriában)
 const activeDefenseRequests = new Map();
+// Aktív emlékeztetők tárolása
+const activeReminders = new Map();
 
 async function handleDefenseCommand(message) {
     const defenseEmbed = new EmbedBuilder()
@@ -13,10 +16,10 @@ async function handleDefenseCommand(message) {
         .setDescription('**Támadás érkezik a faluba?** Kérj segítséget az alliance-tól!')
         .addFields(
             { name: '📋 Mit kell megadni?', value: '• 👤 Játékos és falu neve\n• ⏰ Támadás érkezési időpontja\n• 🏺 Magtár állapot\n• 🧱 Fal szintje', inline: false },
-            { name: '🎯 Mi történik?', value: '• Automatikus védési csatorna létrehozás\n• Védők jelentkezhetnek\n• Automatikus emlékeztetők', inline: false },
+            { name: '🎯 Mi történik?', value: '• Automatikus védési csatorna létrehozás\n• Védők jelentkezhetnek\n• ⚡ **Automatikus emlékeztetők** (60, 30, 10 perc előtt)', inline: false },
             { name: '⚡ Gyors használat', value: 'Kattints a gombra és töltsd ki az űrlapot!', inline: false }
         )
-        .setFooter({ text: 'Alliance Defense System v2.0' })
+        .setFooter({ text: 'Alliance Defense System v2.1 - Automatikus emlékeztetőkkel!' })
         .setTimestamp();
 
     const requestButton = new ActionRowBuilder()
@@ -93,6 +96,9 @@ async function processDefenseRequest(interaction) {
     const wallLevel = interaction.fields.getTextInputValue('wall_level');
 
     try {
+        // Idő parsing a támadás időpontjához
+        const parsedAttackTime = parseTime(attackTime);
+        
         // Védési csatorna létrehozása
         const channelName = `${config.defense.channelNamePrefix}${playerName.toLowerCase().replace(/\s/g, '-')}`;
         
@@ -117,17 +123,25 @@ async function processDefenseRequest(interaction) {
         const requestId = `defense_${Date.now()}_${defenseChannel.id.slice(-4)}`;
         
         // Védési kérés adatok tárolása
-        activeDefenseRequests.set(requestId, {
+        const defenseRequest = {
             channelId: defenseChannel.id,
             requesterId: interaction.user.id,
             playerName,
             villageName,
             attackTime,
+            attackTimeObj: parsedAttackTime, // ÚJ: Parsed idő objektum
             granaryInfo,
             wallLevel,
             defenders: new Map(),
             createdAt: new Date()
-        });
+        };
+        
+        activeDefenseRequests.set(requestId, defenseRequest);
+
+        // ÚJ: AUTOMATIKUS EMLÉKEZTETŐK BEÁLLÍTÁSA
+        if (parsedAttackTime) {
+            await scheduleDefenseReminders(requestId, parsedAttackTime, defenseChannel, interaction.guild);
+        }
 
         // Védési információs embed
         const defenseInfoEmbed = new EmbedBuilder()
@@ -137,7 +151,7 @@ async function processDefenseRequest(interaction) {
             .addFields(
                 { name: '👤 Kérelmező', value: `<@${interaction.user.id}>`, inline: true },
                 { name: '🏘️ Falu', value: villageName, inline: true },
-                { name: '⏰ Támadás érkezés', value: attackTime, inline: true },
+                { name: '⏰ Támadás érkezés', value: `${attackTime}${parsedAttackTime ? ` (<t:${Math.floor(parsedAttackTime.getTime() / 1000)}:R>)` : ''}`, inline: true },
                 { name: '🏺 Magtár állapot', value: granaryInfo, inline: true },
                 { name: '🧱 Fal szint', value: wallLevel, inline: true },
                 { name: '📊 Státusz', value: '🔴 **Védők keresése**', inline: true }
@@ -145,6 +159,15 @@ async function processDefenseRequest(interaction) {
             .setThumbnail(interaction.user.displayAvatarURL())
             .setFooter({ text: `ID: ${requestId} | Csatorna: ${defenseChannel.id}` })
             .setTimestamp();
+
+        // ÚJ: Emlékeztető információ hozzáadása
+        if (parsedAttackTime) {
+            defenseInfoEmbed.addFields({
+                name: '⏰ Automatikus emlékeztetők',
+                value: '🔔 Emlékeztetők: 60, 30, 10 perc előtt\n🚨 @everyone pingelés minden emlékeztetőnél',
+                inline: false
+            });
+        }
 
         // Védési gombok
         const defenseButtons = new ActionRowBuilder()
@@ -189,10 +212,25 @@ async function processDefenseRequest(interaction) {
             .setDescription(`Védési csatorna létrehozva: ${defenseChannel}`)
             .addFields(
                 { name: '📊 Részletek', value: `**Falu:** ${villageName}\n**Támadás:** ${attackTime}`, inline: false },
-                { name: '🎯 Következő lépések', value: '• A csatornában várhatod a védőket\n• Automatikus emlékeztetőket fogsz kapni\n• A védők jelentkezhetnek gombokkal', inline: false },
+                { name: '🎯 Következő lépések', value: '• A csatornában várhatod a védőket\n• ⏰ **Automatikus emlékeztetők** érkeznek\n• A védők jelentkezhetnek gombokkal', inline: false },
                 { name: '🆔 Kérés ID', value: `\`${requestId}\``, inline: false }
-            )
-            .setFooter({ text: 'Alliance Defense System v2.0' })
+            );
+
+        if (parsedAttackTime) {
+            confirmEmbed.addFields({
+                name: '⏰ Emlékeztetők',
+                value: `🔔 **60 perc előtt:** <t:${Math.floor((parsedAttackTime.getTime() - 60*60*1000) / 1000)}:F>\n🔔 **30 perc előtt:** <t:${Math.floor((parsedAttackTime.getTime() - 30*60*1000) / 1000)}:F>\n🔔 **10 perc előtt:** <t:${Math.floor((parsedAttackTime.getTime() - 10*60*1000) / 1000)}:F>`,
+                inline: false
+            });
+        } else {
+            confirmEmbed.addFields({
+                name: '⚠️ Figyelem',
+                value: 'Nem sikerült feldolgozni a támadás időpontját - automatikus emlékeztetők nem lesznek beállítva.',
+                inline: false
+            });
+        }
+
+        confirmEmbed.setFooter({ text: 'Alliance Defense System v2.1' })
             .setTimestamp();
 
         await interaction.editReply({ embeds: [confirmEmbed] });
@@ -214,17 +252,117 @@ async function processDefenseRequest(interaction) {
     }
 }
 
+// ÚJ FUNKCIÓ: Automatikus emlékeztetők beállítása
+async function scheduleDefenseReminders(requestId, attackTime, channel, guild) {
+    const now = new Date();
+    const minutesBefore = config.defense.reminderMinutesBefore; // [60, 30, 10]
+
+    console.log(`📅 Emlékeztetők beállítása: ${attackTime.toLocaleString('hu-HU')} - Kérés: ${requestId}`);
+
+    for (const minutes of minutesBefore) {
+        const reminderTime = new Date(attackTime.getTime() - minutes * 60 * 1000);
+        
+        // Csak jövőbeli emlékeztetőket állítsunk be
+        if (reminderTime > now) {
+            const delay = reminderTime.getTime() - now.getTime();
+            
+            const timeoutId = setTimeout(async () => {
+                await sendDefenseReminder(requestId, minutes, channel, guild);
+            }, delay);
+
+            // Emlékeztető tárolása a lemondáshoz
+            activeReminders.set(`${requestId}_${minutes}`, timeoutId);
+            
+            console.log(`⏰ Emlékeztető beállítva: ${minutes} perc - ${reminderTime.toLocaleString('hu-HU')}`);
+        } else {
+            console.log(`⚠️ Emlékeztető kihagyva (múltbeli): ${minutes} perc - ${reminderTime.toLocaleString('hu-HU')}`);
+        }
+    }
+}
+
+// ÚJ FUNKCIÓ: Emlékeztető üzenet küldése
+async function sendDefenseReminder(requestId, minutesBefore, channel, guild) {
+    try {
+        const defenseRequest = activeDefenseRequests.get(requestId);
+        
+        if (!defenseRequest) {
+            console.log(`❌ Védési kérés nem található: ${requestId}`);
+            return;
+        }
+
+        const urgencyLevel = minutesBefore <= 10 ? 'KRITIKUS' : minutesBefore <= 30 ? 'SÜRGŐS' : 'FIGYELEM';
+        const color = minutesBefore <= 10 ? '#FF0000' : minutesBefore <= 30 ? '#FF8C00' : '#FFD700';
+        const emoji = minutesBefore <= 10 ? '🚨' : minutesBefore <= 30 ? '⚠️' : '⏰';
+
+        const reminderEmbed = new EmbedBuilder()
+            .setColor(color)
+            .setTitle(`${emoji} ${urgencyLevel} - Védési Emlékeztető!`)
+            .setDescription(`**${minutesBefore} perc múlva érkezik a támadás!**`)
+            .addFields(
+                { name: '🎯 Cél', value: `**${defenseRequest.playerName}** (${defenseRequest.villageName})`, inline: true },
+                { name: '⏰ Támadás érkezés', value: defenseRequest.attackTime, inline: true },
+                { name: '👥 Védők száma', value: `${defenseRequest.defenders.size} védő jelentkezett`, inline: true }
+            )
+            .setTimestamp();
+
+        // Speciális üzenetek különböző időpontokhoz
+        if (minutesBefore === 60) {
+            reminderEmbed.addFields({
+                name: '📋 Teendők',
+                value: '• Ellenőrizd az egységeidet\n• Számold ki az érkezési időt\n• Készítsd elő a védelmet',
+                inline: false
+            });
+        } else if (minutesBefore === 30) {
+            reminderEmbed.addFields({
+                name: '🚀 Utolsó lehetőség!',
+                value: '• **Most küldd el** a védő egységeket!\n• Ellenőrizd az érkezési időt\n• Koordinálj a többiekkel',
+                inline: false
+            });
+        } else if (minutesBefore === 10) {
+            reminderEmbed.addFields({
+                name: '⚡ VÉSZHELYZET!',
+                value: '• **Csak közeli** egységek érnek oda!\n• Gyors lovasság prioritás\n• Minden számít!',
+                inline: false
+            });
+        }
+
+        const reminderButtons = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`defend_mixed_${requestId}`)
+                    .setLabel('⚡ Gyors védelem')
+                    .setStyle(ButtonStyle.Danger),
+                new ButtonBuilder()
+                    .setCustomId(`defense_status_${requestId}`)
+                    .setLabel('📊 Védők állapota')
+                    .setStyle(ButtonStyle.Secondary)
+            );
+
+        await channel.send({
+            content: `@everyone ${emoji} **${urgencyLevel}** ${emoji}`,
+            embeds: [reminderEmbed],
+            components: [reminderButtons]
+        });
+
+        console.log(`✅ Emlékeztető elküldve: ${minutesBefore} perc - ${requestId}`);
+
+    } catch (error) {
+        console.error(`Hiba az emlékeztető küldésénél:`, error);
+    }
+}
+
+// A többi függvény (handleDefenseActions, showDefenseUnitModal, stb.) marad ugyanaz...
+// [Ide másolod a többi függvényt az eredeti fájlból]
+
 async function handleDefenseActions(interaction) {
     const [action, type, ...restParts] = interaction.customId.split('_');
-    const requestId = restParts.join('_'); // Összerakjuk a requestId-t
+    const requestId = restParts.join('_');
     
     if (action !== 'defend' && action !== 'defense') return;
 
-    // ÚJ: Ha nincs memóriában, próbáljuk meg rekonstruálni a csatorna alapján
     let defenseRequest = activeDefenseRequests.get(requestId);
     
     if (!defenseRequest) {
-        // Próbáljuk meg rekonstruálni az adatokat a csatorna alapján
         defenseRequest = await reconstructDefenseRequest(interaction, requestId);
         
         if (!defenseRequest) {
@@ -237,7 +375,6 @@ async function handleDefenseActions(interaction) {
     }
 
     if (action === 'defend') {
-        // Védő egységek küldése
         await showDefenseUnitModal(interaction, type, requestId);
     } else if (action === 'defense') {
         if (type === 'status') {
@@ -248,29 +385,26 @@ async function handleDefenseActions(interaction) {
     }
 }
 
-// ÚJ FUNKCIÓ: Védési kérés rekonstruálása
 async function reconstructDefenseRequest(interaction, requestId) {
     try {
-        // A csatorna ID-t próbáljuk meg kinyerni a requestId-ből
         const channelId = interaction.channel?.id;
         
         if (!channelId) return null;
         
-        // Alapértelmezett védési kérés létrehozása
         const reconstructedRequest = {
             channelId: channelId,
-            requesterId: null, // Nem tudjuk rekonstruálni
+            requesterId: null,
             playerName: 'Ismeretlen játékos',
             villageName: 'Ismeretlen falu',
             attackTime: 'Ismeretlen idő',
+            attackTimeObj: null, // ÚJ
             granaryInfo: 'Nincs adat',
             wallLevel: 'Nincs adat',
             defenders: new Map(),
             createdAt: new Date(),
-            reconstructed: true // Jelöljük, hogy rekonstruált
+            reconstructed: true
         };
         
-        // Tároljuk a rekonstruált kérést
         activeDefenseRequests.set(requestId, reconstructedRequest);
         
         console.log(`🔄 Védési kérés rekonstruálva: ${requestId}`);
@@ -334,7 +468,6 @@ async function processDefenseUnits(interaction) {
     
     let defenseRequest = activeDefenseRequests.get(requestId);
     
-    // Ha nincs memóriában, rekonstruáljuk
     if (!defenseRequest) {
         defenseRequest = await reconstructDefenseRequest(interaction, requestId);
     }
@@ -349,7 +482,6 @@ async function processDefenseUnits(interaction) {
     const defenseUnits = interaction.fields.getTextInputValue('defense_units');
     const arrivalTime = interaction.fields.getTextInputValue('arrival_time');
 
-    // Védő hozzáadása
     const defenderId = interaction.user.id;
     defenseRequest.defenders.set(defenderId, {
         name: defenderName,
@@ -360,7 +492,6 @@ async function processDefenseUnits(interaction) {
         userId: defenderId
     });
 
-    // Védő jelentkezés embed
     const defenderEmbed = new EmbedBuilder()
         .setColor(config.colors.success)
         .setTitle('✅ Új Védő Jelentkezett!')
@@ -373,13 +504,11 @@ async function processDefenseUnits(interaction) {
         .setThumbnail(interaction.user.displayAvatarURL())
         .setTimestamp();
 
-    // Üzenet küldése a védési csatornába
     const defenseChannel = interaction.guild.channels.cache.get(defenseRequest.channelId);
     if (defenseChannel) {
         await defenseChannel.send({ embeds: [defenderEmbed] });
     }
 
-    // Megerősítő üzenet
     await interaction.editReply({ 
         content: `✅ **Védő egységek jelentve!**\nKöszönjük a segítséget! 🛡️` 
     });
@@ -388,7 +517,6 @@ async function processDefenseUnits(interaction) {
 async function showDefenseStatus(interaction, requestId) {
     let defenseRequest = activeDefenseRequests.get(requestId);
     
-    // Ha nincs memóriában, rekonstruáljuk
     if (!defenseRequest) {
         defenseRequest = await reconstructDefenseRequest(interaction, requestId);
     }
@@ -434,7 +562,6 @@ async function showDefenseStatus(interaction, requestId) {
 async function closeDefenseRequest(interaction, requestId) {
     let defenseRequest = activeDefenseRequests.get(requestId);
     
-    // Ha nincs memóriában, rekonstruáljuk
     if (!defenseRequest) {
         defenseRequest = await reconstructDefenseRequest(interaction, requestId);
     }
@@ -444,11 +571,13 @@ async function closeDefenseRequest(interaction, requestId) {
         return;
     }
 
-    // Csak a kérelmező vagy adminisztrátor zárhatja le
     if (defenseRequest.requesterId && interaction.user.id !== defenseRequest.requesterId && !interaction.member.permissions.has(PermissionFlagsBits.ManageChannels)) {
         await interaction.reply({ content: '❌ Csak a kérelmező vagy egy adminisztrátor zárhatja le a védési kérést!', ephemeral: true });
         return;
     }
+
+    // ÚJ: Emlékeztetők lemondása
+    cancelDefenseReminders(requestId);
 
     const closeEmbed = new EmbedBuilder()
         .setColor(config.colors.warning)
@@ -461,7 +590,6 @@ async function closeDefenseRequest(interaction, requestId) {
 
     await interaction.reply({ embeds: [closeEmbed] });
 
-    // Csatorna törlése 1 óra múlva
     setTimeout(async () => {
         try {
             const channel = interaction.guild.channels.cache.get(defenseRequest.channelId);
@@ -473,8 +601,23 @@ async function closeDefenseRequest(interaction, requestId) {
         }
     }, 3600000); // 1 óra
 
-    // Eltávolítás az aktív kérések közül
     activeDefenseRequests.delete(requestId);
+}
+
+// ÚJ FUNKCIÓ: Emlékeztetők lemondása
+function cancelDefenseReminders(requestId) {
+    const minutesBefore = config.defense.reminderMinutesBefore;
+    
+    for (const minutes of minutesBefore) {
+        const reminderKey = `${requestId}_${minutes}`;
+        const timeoutId = activeReminders.get(reminderKey);
+        
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+            activeReminders.delete(reminderKey);
+            console.log(`❌ Emlékeztető lemondva: ${minutes} perc - ${requestId}`);
+        }
+    }
 }
 
 module.exports = {

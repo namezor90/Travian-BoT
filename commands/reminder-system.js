@@ -164,4 +164,120 @@ async function handleReminderList(interaction) {
         .setThumbnail(interaction.user.displayAvatarURL())
         .setTimestamp();
 
-    for (let i = 0; i < Math.min(activeReminders.length, 8);
+    for (let i = 0; i < Math.min(activeReminders.length, 8); i++) {
+        const reminder = activeReminders[i];
+        const nextTime = new Date(reminder.nextRun);
+        const typeEmoji = reminder.type === 'farm' ? '🚜' : '⏰';
+        const typeText = reminder.type === 'farm' ? 'Farm emlékeztető' : 'Egyszeri emlékeztető';
+
+        listEmbed.addFields({
+            name: `${i + 1}. ${typeEmoji} ${typeText}`,
+            value: `**Üzenet:** ${reminder.message.slice(0, 50)}${reminder.message.length > 50 ? '...' : ''}\n**Következő:** <t:${Math.floor(nextTime.getTime() / 1000)}:F>\n**ID:** \`${reminder.id}\``,
+            inline: false
+        });
+    }
+
+    if (activeReminders.length > 8) {
+        listEmbed.setFooter({ text: `Csak az első 8 emlékeztető van megjelenítve a ${activeReminders.length}-ból.` });
+    }
+
+    await interaction.reply({ embeds: [listEmbed], ephemeral: true });
+}
+
+async function handleStopReminder(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+
+    const type = interaction.options.getString('típus');
+
+    try {
+        const stoppedReminders = profileManager.stopUserReminders(interaction.user.id, type);
+
+        // Aktív timeout-ok lemondása
+        const userReminders = profileManager.getUserReminders(interaction.user.id);
+        for (const reminder of userReminders) {
+            if (!reminder.isActive && activeTimeouts.has(reminder.id)) {
+                clearTimeout(activeTimeouts.get(reminder.id));
+                activeTimeouts.delete(reminder.id);
+            }
+        }
+
+        const typeText = type === 'all' ? 'összes' : type === 'farm' ? 'farm' : 'egyszeri';
+        
+        const confirmEmbed = new EmbedBuilder()
+            .setColor(config.colors.success)
+            .setTitle('⏹️ Emlékeztetők Leállítva')
+            .setDescription(`**${stoppedReminders.length}** ${typeText} emlékeztető lett leállítva.`)
+            .setTimestamp();
+
+        await interaction.editReply({ embeds: [confirmEmbed] });
+
+    } catch (error) {
+        console.error('Hiba az emlékeztetők leállításánál:', error);
+        
+        const errorEmbed = new EmbedBuilder()
+            .setColor(config.colors.error)
+            .setTitle('❌ Hiba történt!')
+            .setDescription('Nem sikerült leállítani az emlékeztetőket.')
+            .setTimestamp();
+
+        await interaction.editReply({ embeds: [errorEmbed] });
+    }
+}
+
+// Emlékeztető küldése
+async function sendReminder(interaction, reminder) {
+    try {
+        const reminderEmbed = new EmbedBuilder()
+            .setColor('#FF4500')
+            .setTitle('🔔 Emlékeztető!')
+            .setDescription(`**${reminder.message}**`)
+            .addFields(
+                { name: '👤 Beállította', value: `<@${interaction.user.id}>`, inline: true },
+                { name: '⏰ Beállítva', value: `<t:${Math.floor(new Date(reminder.createdAt).getTime() / 1000)}:R>`, inline: true }
+            )
+            .setTimestamp();
+
+        await interaction.followUp({ 
+            content: `<@${interaction.user.id}>`, 
+            embeds: [reminderEmbed] 
+        });
+
+    } catch (error) {
+        console.error('Hiba az emlékeztető küldésénél:', error);
+    }
+}
+
+// Farm emlékeztető küldése (ismétlődő)
+async function sendFarmReminder(interaction, reminder, hours) {
+    try {
+        const farmEmbed = new EmbedBuilder()
+            .setColor('#32CD32')
+            .setTitle('🚜 Farm Emlékeztető!')
+            .setDescription('**Ideje ellenőrizni a farmokat és erőforrásokat!**')
+            .addFields(
+                { name: '🎯 Mit csinálj?', value: '• Ellenőrizd a farmjaidet\n• Gyűjtsd be az erőforrásokat\n• Támadj új farmokat\n• Ellenőrizd a kereskedelmet', inline: false },
+                { name: '🔄 Következő emlékeztető', value: `${hours} óra múlva`, inline: true },
+                { name: '⏹️ Leállítás', value: '`/emlékeztető leállít típus:farm`', inline: true }
+            )
+            .setTimestamp();
+
+        await interaction.followUp({ 
+            content: `<@${interaction.user.id}>`, 
+            embeds: [farmEmbed] 
+        });
+
+        // Következő emlékeztető beállítása
+        const nextTimeout = setTimeout(async () => {
+            await sendFarmReminder(interaction, reminder, hours);
+        }, hours * 60 * 60 * 1000);
+
+        activeTimeouts.set(reminder.id, nextTimeout);
+
+    } catch (error) {
+        console.error('Hiba a farm emlékeztető küldésénél:', error);
+    }
+}
+
+module.exports = {
+    handleSlashReminder
+};

@@ -171,7 +171,7 @@ client.on('messageCreate', message => {
                 { name: '!parancsok', value: 'Gyors parancs referencia', inline: true },
                 { name: '!ping', value: 'Bot válaszidő', inline: true },
                 { name: '!info', value: 'Szerver információk', inline: true },
-                { name: '!seregjelentő', value: 'Alliance sereg jelentő űrlap', inline: true },
+                { name: '!', value: 'Alliance sereg jelentő űrlap', inline: true },
                 { name: '!tisztít [szám]', value: 'Üzenetek törlése', inline: true }
             )
             .setFooter({ text: 'Travian Bot v2.0', iconURL: client.user.displayAvatarURL() })
@@ -189,7 +189,7 @@ client.on('messageCreate', message => {
             .addFields(
                 { name: '⚡ **GYORS SZÁMÍTÁSOK**', value: '`!utazás 15.3 19` - Utazási idő\n`!koordináta 0 0 15 20` - Távolság\n`!erőforrás 120 100 80 50 8.5` - Termelés', inline: false },
                 { name: '📚 **INFORMÁCIÓK**', value: '`!sebesség` - Egység sebességek\n`!törzs római` - Törzs részletek\n`!help` - Teljes súgó', inline: false },
-                { name: '⚔️ **ALLIANCE FUNKCIÓK**', value: '`!seregjelentő` - Interaktív sereg jelentő', inline: false },
+                { name: '⚔️ **ALLIANCE FUNKCIÓK**', value: '`!` - Interaktív sereg jelentő', inline: false },
                 { name: '⏰ **IDŐZÍTŐ**', value: '`!emlékeztető 30 Farmok!` - Emlékeztető\n`!ping` - Bot státusz', inline: false },
                 { name: '🎯 **ELÉRHETŐ TÖRZSEK**', value: 'római • germán • gall • egyiptomi • hun', inline: false }
             )
@@ -199,7 +199,7 @@ client.on('messageCreate', message => {
         message.reply({ embeds: [commandsEmbed] });
     }
 
-    // Seregjelentő parancs
+    //  parancs
     else if (command === 'seregjelentő' || command === 'army') {
         // Törzs választó dropdown
         const tribeSelect = new StringSelectMenuBuilder()
@@ -659,10 +659,12 @@ if (interaction.isButton() && interaction.customId.startsWith('army_report_')) {
 
        modal.addComponents(...rows);
        await interaction.showModal(modal);
-   } catch (error) {
-       console.error('Modal hiba:', error);
-       await interaction.reply({ content: '❌ Hiba az űrlap megnyitásakor!', ephemeral: true });
-   }
+    } catch (error) {
+    console.error('Modal hiba:', error);
+    console.error('Error details:', error.message);
+    console.error('Stack trace:', error.stack);
+    await interaction.reply({ content: `❌ Hiba az űrlap megnyitásakor! ${error.message}`, ephemeral: true });
+    }
 }
 
     // Seregjelentő form feldolgozása (törzsspecifikus)

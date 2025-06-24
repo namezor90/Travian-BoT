@@ -1,5 +1,4 @@
-message.reply({ embeds: [commandsEmbed] });
-    }    const { Client, GatewayIntentBits, EmbedBuilder, ActivityType } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, ActivityType } = require('discord.js');
 
 // Bot létrehozása
 const client = new Client({
@@ -111,6 +110,8 @@ client.on('messageCreate', message => {
             )
             .setFooter({ text: 'Részletes leírás: !help parancs' })
             .setTimestamp();
+
+        message.reply({ embeds: [commandsEmbed] });
     }
 
     // Travian utazási idő számítás
@@ -316,6 +317,8 @@ client.on('messageCreate', message => {
             message.channel.send({ content: `<@${message.author.id}>`, embeds: [alertEmbed] });
         }, minutes * 60000);
     }
+
+    // Ping parancs
     else if (command === 'ping') {
         const sent = Date.now();
         message.reply('🏓 Pong!').then(msg => {

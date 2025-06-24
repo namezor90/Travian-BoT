@@ -1,4 +1,4 @@
-// utils/helpers.js - Általános segédfüggvények (JAVÍTOTT IDŐKEZELÉS)
+// utils/helpers.js - DEBUG VERZIÓ
 const config = require('../config');
 
 /**
@@ -52,9 +52,11 @@ function getRandomColor() {
 }
 
 /**
- * Idő parsing különböző formátumokból (JAVÍTOTT)
+ * Idő parsing különböző formátumokból (DEBUG VERZIÓ)
  */
 function parseTime(timeString) {
+    console.log(`🔍 DEBUG - Időpont parsing: "${timeString}"`);
+    
     // "14:30" vagy "2024.12.24 14:30" formátumok támogatása
     const timeRegex = /(\d{1,2}):(\d{2})/;
     const dateTimeRegex = /(\d{4})\.(\d{1,2})\.(\d{1,2})\s+(\d{1,2}):(\d{2})/;
@@ -63,7 +65,9 @@ function parseTime(timeString) {
     const dateTimeMatch = timeString.match(dateTimeRegex);
     if (dateTimeMatch) {
         const [, year, month, day, hour, minute] = dateTimeMatch;
-        return new Date(year, month - 1, day, hour, minute);
+        const result = new Date(year, month - 1, day, hour, minute);
+        console.log(`✅ DEBUG - Teljes dátum felismerve: ${result.toLocaleString('hu-HU')}`);
+        return result;
     }
     
     // Csak idő formátum (pl. "14:30")
@@ -72,24 +76,34 @@ function parseTime(timeString) {
         const [, hour, minute] = timeMatch;
         const now = new Date();
         
-        // Mai dátummal próbálkozzunk
-        const todayTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute);
+        console.log(`📅 DEBUG - Most: ${now.toLocaleString('hu-HU')}`);
+        console.log(`🕐 DEBUG - Megadott idő: ${hour}:${minute}`);
         
-        // JAVÍTÁS: Ha mai időpont még jövőbeli (vagy kevesebb mint 5 perc múltbeli), használjuk ma
+        // Mai dátummal próbálkozzunk
+        const todayTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), parseInt(hour), parseInt(minute));
+        console.log(`📆 DEBUG - Mai dátummal: ${todayTime.toLocaleString('hu-HU')}`);
+        
+        // Időkülönbség számítása
         const timeDiff = todayTime.getTime() - now.getTime();
+        const timeDiffMinutes = Math.round(timeDiff / (1000 * 60));
+        console.log(`⏱️ DEBUG - Időkülönbség: ${timeDiffMinutes} perc`);
+        
         const fiveMinutesInMs = 5 * 60 * 1000;
         
         if (timeDiff > -fiveMinutesInMs) {
             // Mai időpont jó (jövőbeli vagy legfeljebb 5 perce múltbeli)
+            console.log(`✅ DEBUG - Mai dátum használata: ${todayTime.toLocaleString('hu-HU')}`);
             return todayTime;
         } else {
             // Ha több mint 5 perce múltbeli, akkor holnapra tesszük
             const tomorrowTime = new Date(todayTime);
             tomorrowTime.setDate(tomorrowTime.getDate() + 1);
+            console.log(`🔄 DEBUG - Holnapi dátumra váltás: ${tomorrowTime.toLocaleString('hu-HU')}`);
             return tomorrowTime;
         }
     }
     
+    console.log(`❌ DEBUG - Nem sikerült feldolgozni az időpontot: "${timeString}"`);
     return null;
 }
 

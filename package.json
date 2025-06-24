@@ -1,25 +1,42 @@
 {
   "name": "travian-discord-bot",
-  "version": "2.0.0",
-  "description": "Travian Alliance Management Discord Bot",
+  "version": "3.0.0",
+  "description": "Travian Alliance Management Discord Bot with Slash Commands",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "node index.js"
+    "dev": "node index.js",
+    "deploy": "node deploy-commands.js",
+    "deploy-global": "GUILD_ID= node deploy-commands.js",
+    "test": "node test/test-commands.js"
   },
   "keywords": [
     "discord",
     "bot",
     "travian",
     "alliance",
-    "management"
+    "management",
+    "slash-commands",
+    "gaming"
   ],
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
-    "discord.js": "^14.14.1"
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
   },
   "engines": {
     "node": ">=16.0.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "your-repo-url"
+  },
+  "bugs": {
+    "url": "your-repo-url/issues"
+  },
+  "homepage": "your-repo-url#readme"
 }

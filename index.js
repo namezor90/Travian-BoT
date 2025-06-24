@@ -621,32 +621,32 @@ if (interaction.isButton() && interaction.customId.startsWith('army_report_')) {
            .setPlaceholder('pl. Erőd (15|25)')
            .setRequired(true);
 
-       // Gyalogság egységek
-       const infantryUnits = tribeData.units.filter(u => u.type === 'infantry');
-       const infantry = new TextInputBuilder()
-           .setCustomId('infantry')
-           .setLabel(`🛡️ Gyalogság (${infantryUnits.map(u => u.name).join(', ')})`)
-           .setStyle(TextInputStyle.Short)
-           .setPlaceholder(`pl. ${infantryUnits.map((u, i) => `${u.name}: ${(i+1)*50}`).join(', ')}`)
-           .setRequired(false);
+// Gyalogság egységek
+const infantryUnits = tribeData.units.filter(u => u.type === 'infantry');
+const infantry = new TextInputBuilder()
+    .setCustomId('infantry')
+    .setLabel(`🛡️ Gyalogság`) // Egyszerűsített
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder(`pl. ${infantryUnits.map((u, i) => `${u.name}: ${(i+1)*50}`).join(', ')}`)
+    .setRequired(false);
 
-       // Lovasság egységek
-       const cavalryUnits = tribeData.units.filter(u => u.type === 'cavalry');
-       const cavalry = new TextInputBuilder()
-           .setCustomId('cavalry')
-           .setLabel(`🐎 Lovasság (${cavalryUnits.map(u => u.name).join(', ')})`)
-           .setStyle(TextInputStyle.Paragraph)
-           .setPlaceholder(`pl. ${cavalryUnits.map((u, i) => `${u.name}: ${(i+1)*20}`).join(', ')}`)
-           .setRequired(false);
+// Lovasság egységek
+const cavalryUnits = tribeData.units.filter(u => u.type === 'cavalry');
+const cavalry = new TextInputBuilder()
+    .setCustomId('cavalry')
+    .setLabel(`🐎 Lovasság`) // Egyszerűsített
+    .setStyle(TextInputStyle.Paragraph)
+    .setPlaceholder(`pl. ${cavalryUnits.map((u, i) => `${u.name}: ${(i+1)*20}`).join(', ')}`)
+    .setRequired(false);
 
-       // Ostromgépek
-       const siegeUnits = tribeData.units.filter(u => u.type === 'siege');
-       const siege = new TextInputBuilder()
-           .setCustomId('siege')
-           .setLabel(`🏰 Ostromgépek (${siegeUnits.map(u => u.name).join(', ')})`)
-           .setStyle(TextInputStyle.Short)
-           .setPlaceholder(`pl. ${siegeUnits.map((u, i) => `${u.name}: ${(i+1)*5}`).join(', ')}`)
-           .setRequired(false);
+// Ostromgépek
+const siegeUnits = tribeData.units.filter(u => u.type === 'siege');
+const siege = new TextInputBuilder()
+    .setCustomId('siege')
+    .setLabel(`🏰 Ostromgépek`) // Egyszerűsített
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder(`pl. ${siegeUnits.map((u, i) => `${u.name}: ${(i+1)*5}`).join(', ')}`)
+    .setRequired(false);
 
        // Sorok hozzáadása
        const rows = [

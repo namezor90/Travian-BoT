@@ -222,7 +222,7 @@ async function handleTribeCommand(message, args) {
                     { name: '💪 Erősségek', value: '• Gyors lovassági egységek\n• Jó raid képesség\n• Erős távolsági támadás\n• Gyors kereskedő', inline: true },
                     { name: '⚖️ Gyengeségek', value: '• Gyenge védelem\n• Drága infrastruktúra\n• Kisebb termelési bónuszok', inline: true },
                     { name: '🏆 Különlegességek', value: '• Nomád életmód előnyök\n• Erős lovasság\n• Kiválasztott (megsemmisítés)\n• Gyors kereskedő (20 mező/óra)', inline: false },
-                    { name: '⚔️ Fő egységek', value: '**Védelem:** Íjász, Martalóc\n**Támadás:** Zsoldos, Sztyeppei lovas\n**Felderítés:** Figyelő', inline: false }
+                    { name: '⚔️ Fő egységek', value: '**Védelem:** Zsoldos, Martalóc\n**Támadás:** Íjász, Sztyeppei lovas, Mesterlövész\n**Felderítés:** Figyelő', inline: false }
                 );
             break;
     }

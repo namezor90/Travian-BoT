@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, EmbedBuilder, ActivityType } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, ActivityType, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 
 // Bot létrehozása
 const client = new Client({
@@ -9,6 +9,143 @@ const client = new Client({
         GatewayIntentBits.GuildMembers
     ]
 });
+
+// Gomb interakciók kezelése
+client.on('interactionCreate', async interaction => {
+    if (!interaction.isButton() && !interaction.isModalSubmit()) return;
+
+    // Seregjelentő modal megnyitása
+    if (interaction.isButton() && interaction.customId === 'army_report_modal') {
+        const modal = new ModalBuilder()
+            .setCustomId('army_report_form')
+            .setTitle('⚔️ Alliance Seregjelentő');
+
+        // Alapadatok
+        const playerName = new TextInputBuilder()
+            .setCustomId('player_name')
+            .setLabel('👤 Játékos neve')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('pl. Namezor90')
+            .setRequired(true);
+
+        const villageName = new TextInputBuilder()
+            .setCustomId('village_name')
+            .setLabel('🏘️ Falu neve és koordinátái')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('pl. Erőd (15|25)')
+            .setRequired(true);
+
+        const tribeName = new TextInputBuilder()
+            .setCustomId('tribe_name')
+            .setLabel('🏛️ Törzs típusa')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('római/germán/gall/egyiptomi/hun')
+            .setRequired(true);
+
+        // Egységek
+        const infantry = new TextInputBuilder()
+            .setCustomId('infantry')
+            .setLabel('🛡️ Gyalogos egységek (védelem)')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('pl. Légió: 150, Testőrség: 80')
+            .setRequired(false);
+
+        const cavalry = new TextInputBuilder()
+            .setCustomId('cavalry')
+            .setLabel('🐎 Lovas egységek (támadás/védelem)')
+            .setStyle(TextInputStyle.Paragraph)
+            .setPlaceholder('pl. Equites Legati: 50, Equites Caesaris: 30')
+            .setRequired(false);
+
+        // Sorok hozzáadása
+        const firstRow = new ActionRowBuilder().addComponents(playerName);
+        const secondRow = new ActionRowBuilder().addComponents(villageName);
+        const thirdRow = new ActionRowBuilder().addComponents(tribeName);
+        const fourthRow = new ActionRowBuilder().addComponents(infantry);
+        const fifthRow = new ActionRowBuilder().addComponents(cavalry);
+
+        modal.addComponents(firstRow, secondRow, thirdRow, fourthRow, fifthRow);
+
+        await interaction.showModal(modal);
+    }
+
+    // Seregjelentő form feldolgozása
+    if (interaction.isModalSubmit() && interaction.customId === 'army_report_form') {
+        await interaction.deferReply({ ephemeral: true });
+
+        const playerName = interaction.fields.getTextInputValue('player_name');
+        const villageName = interaction.fields.getTextInputValue('village_name');
+        const tribeName = interaction.fields.getTextInputValue('tribe_name');
+        const infantry = interaction.fields.getTextInputValue('infantry') || 'Nincs megadva';
+        const cavalry = interaction.fields.getTextInputValue('cavalry') || 'Nincs megadva';
+
+        // Törzs szín meghatározása
+        let tribeColor = '#DAA520';
+        const tribe = tribeName.toLowerCase();
+        if (tribe.includes('római')) tribeColor = '#DC143C';
+        else if (tribe.includes('germán')) tribeColor = '#228B22';
+        else if (tribe.includes('gall')) tribeColor = '#4169E1';
+        else if (tribe.includes('egyiptomi')) tribeColor = '#FFD700';
+        else if (tribe.includes('hun')) tribeColor = '#8B4513';
+
+        // Vezetői jelentés embed
+        const leaderReportEmbed = new EmbedBuilder()
+            .setColor(tribeColor)
+            .setTitle('📊 Új Seregjelentés Érkezett!')
+            .addFields(
+                { name: '👤 Játékos', value: `**${playerName}**`, inline: true },
+                { name: '🏘️ Falu', value: `**${villageName}**`, inline: true },
+                { name: '🏛️ Törzs', value: `**${tribeName}**`, inline: true },
+                { name: '🛡️ Gyalogos egységek', value: `${infantry}`, inline: false },
+                { name: '🐎 Lovas egységek', value: `${cavalry}`, inline: false },
+                { name: '📅 Jelentés időpontja', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: false },
+                { name: '👨‍💼 Jelentette', value: `<@${interaction.user.id}>`, inline: true }
+            )
+            .setThumbnail(interaction.user.displayAvatarURL())
+            .setTimestamp();
+
+        // Vezetők csatornájába küldés
+        try {
+            const leaderChannel = interaction.guild.channels.cache.get(ARMY_REPORT_CHANNEL_ID);
+            if (leaderChannel) {
+                await leaderChannel.send({ 
+                    content: '🚨 **Új seregjelentés érkezett!**', 
+                    embeds: [leaderReportEmbed] 
+                });
+            }
+
+            // Megerősítő üzenet a felhasználónak
+            const confirmEmbed = new EmbedBuilder()
+                .setColor('#00FF00')
+                .setTitle('✅ Seregjelentés Sikeresen Elküldve!')
+                .setDescription('A jelentésed eljutott a vezetőséghez.')
+                .addFields(
+                    { name: '📊 Adatok', value: `**Játékos:** ${playerName}\n**Falu:** ${villageName}\n**Törzs:** ${tribeName}`, inline: false },
+                    { name: '📅 Időpont', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true }
+                )
+                .setFooter({ text: 'Alliance Management System' })
+                .setTimestamp();
+
+            await interaction.editReply({ embeds: [confirmEmbed] });
+
+        } catch (error) {
+            console.error('Hiba a seregjelentés küldésénél:', error);
+            
+            const errorEmbed = new EmbedBuilder()
+                .setColor('#FF0000')
+                .setTitle('❌ Hiba történt!')
+                .setDescription('Nem sikerült elküldeni a jelentést. Ellenőrizd a csatorna beállításokat.')
+                .setFooter({ text: 'Kérj segítséget egy adminisztrátortól' })
+                .setTimestamp();
+
+            await interaction.editReply({ embeds: [errorEmbed] });
+        }
+    }
+});
+
+// Seregjelentő beállítások - IDE ÁLLÍTSD BE A CSATORNA ID-T!
+const ARMY_REPORT_CHANNEL_ID = '1387002073945473084'; // Vezetők csatorna ID
+const army_reports = new Map(); // Ideiglenes tárolás
 
 // Bot bejelentkezés event
 client.once('ready', () => {
@@ -88,6 +225,7 @@ client.on('messageCreate', message => {
                 { name: '!parancsok', value: 'Gyors parancs referencia', inline: true },
                 { name: '!ping', value: 'Bot válaszidő', inline: true },
                 { name: '!info', value: 'Szerver információk', inline: true },
+                { name: '!seregjelentő', value: 'Alliance sereg jelentő űrlap', inline: true },
                 { name: '!tisztít [szám]', value: 'Üzenetek törlése', inline: true }
             )
             .setFooter({ text: 'Travian Bot v1.0', iconURL: client.user.displayAvatarURL() })
@@ -105,6 +243,7 @@ client.on('messageCreate', message => {
             .addFields(
                 { name: '⚡ **GYORS SZÁMÍTÁSOK**', value: '`!utazás 15.3 19` - Utazási idő\n`!koordináta 0 0 15 20` - Távolság\n`!erőforrás 120 100 80 50 8.5` - Termelés', inline: false },
                 { name: '📚 **INFORMÁCIÓK**', value: '`!sebesség` - Egység sebességek\n`!törzs római` - Törzs részletek\n`!help` - Teljes súgó', inline: false },
+                { name: '⚔️ **ALLIANCE FUNKCIÓK**', value: '`!seregjelentő` - Sereg jelentő űrlap', inline: false },
                 { name: '⏰ **IDŐZÍTŐ**', value: '`!emlékeztető 30 Farmok!` - Emlékeztető\n`!ping` - Bot státusz', inline: false },
                 { name: '🎯 **ELÉRHETŐ TÖRZSEK**', value: 'római • germán • gall • egyiptomi • hun', inline: false }
             )
@@ -112,6 +251,31 @@ client.on('messageCreate', message => {
             .setTimestamp();
 
         message.reply({ embeds: [commandsEmbed] });
+    }
+
+    // Seregjelentő parancs
+    else if (command === 'seregjelentő' || command === 'army') {
+        const reportButton = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId('army_report_modal')
+                    .setLabel('📊 Seregjelentő Kitöltése')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('⚔️')
+            );
+
+        const reportEmbed = new EmbedBuilder()
+            .setColor('#FF6B35')
+            .setTitle('⚔️ Alliance Seregjelentő')
+            .setDescription('**Kattints a gombra a seregjelentő kitöltéséhez!**\n\n📋 **Mit kell megadni:**\n• 👤 Játékos neve\n• 🏘️ Falu neve és koordinátái\n• 🏛️ Törzs típusa\n• ⚔️ Egységek száma')
+            .addFields(
+                { name: '🎯 Miért fontos?', value: 'A vezetőség ezzel tudja koordinálni a támadásokat és védelmet!', inline: false },
+                { name: '📊 Hova kerül?', value: 'A vezetők csatornájába automatikusan összegződik.', inline: false }
+            )
+            .setFooter({ text: 'Alliance Management System' })
+            .setTimestamp();
+
+        message.reply({ embeds: [reportEmbed], components: [reportButton] });
     }
 
     // Travian utazási idő számítás

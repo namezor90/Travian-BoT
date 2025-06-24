@@ -138,19 +138,35 @@ async function processPlayerData(interaction) {
         const playerName = interaction.fields.getTextInputValue('player_name');
         const villageName = interaction.fields.getTextInputValue('village_name');
 
+        // Validáció
+        if (!playerName || playerName.trim().length === 0) {
+            await interaction.reply({ content: '❌ Játékos név kötelező!', ephemeral: true });
+            return;
+        }
+
+        if (!villageName || villageName.trim().length === 0) {
+            await interaction.reply({ content: '❌ Falu név kötelező!', ephemeral: true });
+            return;
+        }
+
         // Adatok mentése
-        session.data.playerName = playerName;
-        session.data.villageName = villageName;
+        session.data.playerName = playerName.trim();
+        session.data.villageName = villageName.trim();
         session.step = 2;
 
         console.log(`📝 Játékos adatok mentve: ${playerName} - ${villageName}`);
+
+        // FONTOS: Megerősítő üzenet hogy a modal feldolgozás sikeres
+        await interaction.deferReply({ ephemeral: true });
 
         // Gyalogság modal megjelenítése
         await showInfantryModal(interaction, sessionId, session);
 
     } catch (error) {
         console.error('Hiba a játékos adatok feldolgozásakor:', error);
-        await interaction.reply({ content: '❌ Hiba történt az adatok mentésekor!', ephemeral: true });
+        if (!interaction.replied && !interaction.deferred) {
+            await interaction.reply({ content: '❌ Hiba történt az adatok mentésekor!', ephemeral: true });
+        }
     }
 }
 
@@ -167,7 +183,17 @@ async function showInfantryModal(interaction, sessionId, session) {
             console.log(`⚠️ Nincs gyalogság a ${tribeData.name} törzsnél, ugrás a lovasságra`);
             session.data.infantry = {};
             session.step = 3;
-            await showCavalryModal(interaction, sessionId, session);
+            
+            // Megerősítő üzenet az ugrásról
+            await interaction.editReply({ 
+                content: `ℹ️ A ${tribeData.name} törzsnél nincs gyalogság, ugrás a lovasságra...`,
+                ephemeral: true 
+            });
+            
+            // Kis várakozás a felhasználó tájékoztatására
+            setTimeout(async () => {
+                await showCavalryModal(interaction, sessionId, session);
+            }, 1500);
             return;
         }
 
@@ -198,7 +224,47 @@ async function showInfantryModal(interaction, sessionId, session) {
         }
 
         modal.addComponents(...inputs);
-        await interaction.showModal(modal);
+        
+        // Megerősítő üzenet módosítása
+        await interaction.editReply({ 
+            content: `✅ Játékos adatok mentve! Most töltsd ki a gyalogság egységeket...`,
+            ephemeral: true 
+        });
+        
+        // Modal megjelenítése
+        await interaction.followUp({ 
+            components: [],
+            ephemeral: true
+        });
+        
+        // Modal megjelenítése külön interaction-nel
+        setTimeout(async () => {
+            try {
+                // Új interaction kell a modalhoz
+                const channel = interaction.channel;
+                if (channel) {
+                    const embed = new EmbedBuilder()
+                        .setColor('#4169E1')
+                        .setTitle('🛡️ Gyalogság Egységek')
+                        .setDescription(`Kattints a gombra a gyalogság egységek megadásához!`)
+                        .addFields(
+                            { name: 'Elérhető egységek', value: unitsToShow.map(u => `• ${u.name}`).join('\n'), inline: false }
+                        );
+                    
+                    const button = new ActionRowBuilder()
+                        .addComponents(
+                            new ButtonBuilder()
+                                .setCustomId(`show_infantry_modal_${sessionId}`)
+                                .setLabel('🛡️ Gyalogság megadása')
+                                .setStyle(ButtonStyle.Primary)
+                        );
+                    
+                    await channel.send({ embeds: [embed], components: [button] });
+                }
+            } catch (err) {
+                console.error('Hiba a gyalogság gomb megjelenítésekor:', err);
+            }
+        }, 500);
 
     } catch (error) {
         console.error('Hiba a gyalogság modal megjelenítésekor:', error);
@@ -208,10 +274,21 @@ async function showInfantryModal(interaction, sessionId, session) {
             session.data.infantry = {};
             session.step = 3;
             console.log(`🔄 Fallback: ugrás lovasságra`);
-            await showCavalryModal(interaction, sessionId, session);
+            
+            await interaction.editReply({ 
+                content: `⚠️ Hiba a gyalogság űrlapnál, ugrás a lovasságra...`,
+                ephemeral: true 
+            });
+            
+            setTimeout(async () => {
+                await showCavalryModal(interaction, sessionId, session);
+            }, 1500);
         } catch (fallbackError) {
             console.error('Fallback is sikertelen:', fallbackError);
-            await interaction.reply({ content: '❌ Hiba történt a gyalogság űrlap megjelenítésekor!', ephemeral: true });
+            await interaction.editReply({ 
+                content: '❌ Hiba történt a gyalogság űrlap megjelenítésekor!',
+                ephemeral: true 
+            });
         }
     }
 }

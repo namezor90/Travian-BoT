@@ -1,4 +1,4 @@
-// index.js - Fő bot fájl (Frissített a gomb kezelésekhez)
+// index.js - Fő bot fájl (JAVÍTOTT VERZIÓ)
 const { Client, GatewayIntentBits, EmbedBuilder, ActivityType, Collection } = require('discord.js');
 const config = require('./config');
 
@@ -26,7 +26,7 @@ client.once('ready', () => {
     console.log(`🤖 Bot bejelentkezett mint ${client.user.tag}!`);
     console.log(`📊 ${client.guilds.cache.size} szerveren vagyok jelen`);
     console.log(`🛡️ Védési rendszer aktív!`);
-    console.log(`⚔️ Lépcsős seregjelentő aktív!`);
+    console.log(`⚔️ Egyszerűsített seregjelentő aktív!`);
     
     // Bot státusz beállítása
     client.user.setActivity(config.bot.activityText, { type: ActivityType.Watching });
@@ -61,7 +61,7 @@ client.on('messageCreate', async message => {
             await travianCommands.handleTravianCommand(message, command, args);
         }
         
-        // Seregjelentő parancs (ÚJ LÉPCSŐS RENDSZER)
+        // Seregjelentő parancs (ÚJ EGYSZERŰSÍTETT RENDSZER)
         else if (['seregjelentő', 'army'].includes(command)) {
             await armyReportCommands.handleArmyCommand(message);
         }

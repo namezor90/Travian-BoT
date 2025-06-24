@@ -1,4 +1,4 @@
-// index.js - Fő bot fájl (Új moduláris struktúra)
+// index.js - Fő bot fájl (Frissített a lépcsős seregjelentőhöz)
 const { Client, GatewayIntentBits, EmbedBuilder, ActivityType, Collection } = require('discord.js');
 const config = require('./config');
 
@@ -26,6 +26,7 @@ client.once('ready', () => {
     console.log(`🤖 Bot bejelentkezett mint ${client.user.tag}!`);
     console.log(`📊 ${client.guilds.cache.size} szerveren vagyok jelen`);
     console.log(`🛡️ Védési rendszer aktív!`);
+    console.log(`⚔️ Lépcsős seregjelentő aktív!`);
     
     // Bot státusz beállítása
     client.user.setActivity(config.bot.activityText, { type: ActivityType.Watching });
@@ -60,12 +61,12 @@ client.on('messageCreate', async message => {
             await travianCommands.handleTravianCommand(message, command, args);
         }
         
-        // Seregjelentő parancs
+        // Seregjelentő parancs (ÚJ LÉPCSŐS RENDSZER)
         else if (['seregjelentő', 'army'].includes(command)) {
             await armyReportCommands.handleArmyCommand(message);
         }
         
-        // Védési kérés parancs (ÚJ!)
+        // Védési kérés parancs
         else if (['védés', 'defense', 'védelem'].includes(command)) {
             await defenseCommands.handleDefenseCommand(message);
         }
@@ -99,12 +100,12 @@ client.on('interactionCreate', async interaction => {
         else if (interaction.isButton()) {
             const customId = interaction.customId;
             
-            // Seregjelentő gombok
+            // Régi seregjelentő gombok (elavult)
             if (customId.startsWith('army_report_')) {
                 await armyReportCommands.handleArmyReportButton(interaction);
             }
             
-            // Védési kérés gombok (ÚJ!)
+            // Védési kérés gombok
             else if (customId === 'defense_request_modal') {
                 await defenseCommands.showDefenseModal(interaction);
             }
@@ -117,12 +118,23 @@ client.on('interactionCreate', async interaction => {
         else if (interaction.isModalSubmit()) {
             const customId = interaction.customId;
             
-            // Seregjelentő modal
-            if (customId.startsWith('army_form_')) {
+            // ÚJ LÉPCSŐS SEREGJELENTŐ MODALOK
+            if (customId.startsWith('player_data_')) {
+                await armyReportCommands.processPlayerData(interaction);
+            }
+            else if (customId.startsWith('infantry_data_')) {
+                await armyReportCommands.processInfantryData(interaction);
+            }
+            else if (customId.startsWith('cavalry_data_')) {
+                await armyReportCommands.processCavalryData(interaction);
+            }
+            
+            // Régi seregjelentő modal (elavult)
+            else if (customId.startsWith('army_form_')) {
                 await armyReportCommands.processArmyReport(interaction);
             }
             
-            // Védési kérés modal (ÚJ!)
+            // Védési kérés modalok
             else if (customId === 'defense_form') {
                 await defenseCommands.processDefenseRequest(interaction);
             }

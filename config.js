@@ -10,9 +10,9 @@ module.exports = {
     // Csatorna ID-k
     channels: {
         // FONTOS: Cseréld ki ezeket a valós csatorna ID-kra!
-        armyReports: process.env.ARMY_REPORT_CHANNEL_ID || '1234567890123456789', // Seregjelentések csatornája
-        defenseCategory: process.env.DEFENSE_CATEGORY_ID || '1234567890123456789', // Védési csatornák kategóriája
-        leadershipRole: process.env.LEADERSHIP_ROLE_ID || '1234567890123456789' // Vezetői szerep
+        armyReports: process.env.ARMY_REPORT_CHANNEL_ID || '1387002073945473084', // Seregjelentések csatornája
+        defenseCategory: process.env.DEFENSE_CATEGORY_ID || '1387024559164887114', // Védési csatornák kategóriája
+        leadershipRole: process.env.LEADERSHIP_ROLE_ID || '1387027386767245333' // Vezetői szerep
     },
 
     // Bot beállítások

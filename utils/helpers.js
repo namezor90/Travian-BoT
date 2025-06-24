@@ -1,4 +1,4 @@
-// utils/helpers.js - Általános segédfüggvények
+// utils/helpers.js - Általános segédfüggvények (JAVÍTOTT IDŐKEZELÉS)
 const config = require('../config');
 
 /**
@@ -52,31 +52,42 @@ function getRandomColor() {
 }
 
 /**
- * Idő parsing különböző formátumokból
+ * Idő parsing különböző formátumokból (JAVÍTOTT)
  */
 function parseTime(timeString) {
     // "14:30" vagy "2024.12.24 14:30" formátumok támogatása
     const timeRegex = /(\d{1,2}):(\d{2})/;
     const dateTimeRegex = /(\d{4})\.(\d{1,2})\.(\d{1,2})\s+(\d{1,2}):(\d{2})/;
     
+    // Teljes dátum + idő formátum
     const dateTimeMatch = timeString.match(dateTimeRegex);
     if (dateTimeMatch) {
         const [, year, month, day, hour, minute] = dateTimeMatch;
         return new Date(year, month - 1, day, hour, minute);
     }
     
+    // Csak idő formátum (pl. "14:30")
     const timeMatch = timeString.match(timeRegex);
     if (timeMatch) {
         const [, hour, minute] = timeMatch;
-        const today = new Date();
-        const time = new Date(today.getFullYear(), today.getMonth(), today.getDate(), hour, minute);
+        const now = new Date();
         
-        // Ha múltbeli időpont, akkor holnapra tesszük
-        if (time < today) {
-            time.setDate(time.getDate() + 1);
+        // Mai dátummal próbálkozzunk
+        const todayTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute);
+        
+        // JAVÍTÁS: Ha mai időpont még jövőbeli (vagy kevesebb mint 5 perc múltbeli), használjuk ma
+        const timeDiff = todayTime.getTime() - now.getTime();
+        const fiveMinutesInMs = 5 * 60 * 1000;
+        
+        if (timeDiff > -fiveMinutesInMs) {
+            // Mai időpont jó (jövőbeli vagy legfeljebb 5 perce múltbeli)
+            return todayTime;
+        } else {
+            // Ha több mint 5 perce múltbeli, akkor holnapra tesszük
+            const tomorrowTime = new Date(todayTime);
+            tomorrowTime.setDate(tomorrowTime.getDate() + 1);
+            return tomorrowTime;
         }
-        
-        return time;
     }
     
     return null;

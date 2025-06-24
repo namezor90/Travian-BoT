@@ -1,0 +1,19 @@
+{
+  "name": "discord-bot-teszt",
+  "version": "1.0.0",
+  "description": "Egyszerű Discord bot Railway hosztoláshoz",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js"
+  },
+  "keywords": ["discord", "bot", "nodejs"],
+  "author": "Te",
+  "license": "MIT",
+  "dependencies": {
+    "discord.js": "^14.14.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

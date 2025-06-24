@@ -82,7 +82,7 @@ client.on('messageCreate', message => {
                 { name: '!koordináta [x1] [y1] [x2] [y2]', value: 'Távolság számítása', inline: true },
                 { name: '!emlékeztető [perc] [üzenet]', value: 'Időzítő beállítása', inline: true },
                 { name: '!sebesség', value: 'Egység sebességek listája', inline: true },
-                { name: '!tribe [törzs]', value: 'Törzs információk', inline: true },
+                { name: '!tribe [törzs]', value: 'Törzs információk (római/germán/gall/egyiptomi/hun)', inline: true },
                 { name: '🤖 **ÁLTALÁNOS PARANCSOK**', value: '\u200B', inline: false },
                 { name: '!ping', value: 'Bot válaszidő', inline: true },
                 { name: '!info', value: 'Szerver információk', inline: true },
@@ -182,13 +182,14 @@ client.on('messageCreate', message => {
             .setColor('#FF6347')
             .setTitle('🏃 Egység Sebességek (mező/óra)')
             .addFields(
-                { name: '🛡️ **RÓMAI**', value: '**Légió:** 16\n**Praetoriánus:** 18\n**Impériáns:** 15\n**Equites Legati:** 16\n**Equites Imperatoris:** 14\n**Equites Caesaris:** 19', inline: true },
-                { name: '⚔️ **GERMÁN**', value: '**Buzogányos:** 7\n**Lándzsás:** 6\n**Fejszés:** 6\n**Felderítő:** 18\n**Pallos:** 19\n**Theutates Thunder:** 19', inline: true },
-                { name: '🏹 **GALL**', value: '**Fallabda:** 5\n**Kardos:** 6\n**Útmutató:** 17\n**Theutates Thunder:** 19\n**Druidride:** 16\n**Haeduan:** 13', inline: true },
-                { name: '🚛 **KERESKEDŐ**', value: '**Római:** 16 mező/óra\n**Germán:** 12 mező/óra\n**Gall:** 24 mező/óra', inline: false },
-                { name: '🏰 **OSTROM**', value: '**Kos:** 3 mező/óra\n**Katapult:** 3 mező/óra', inline: true }
+                { name: '🛡️ **RÓMAI**', value: '**Légió:** 16\n**Testőrség:** 18\n**Birodalmi:** 15\n**Equites Legati:** 16\n**Equites Imperatoris:** 14\n**Equites Caesaris:** 19\n**Faltörő-kos:** 3\n**Tűzkatapult:** 3', inline: true },
+                { name: '⚔️ **GERMÁN**', value: '**Buzogányos:** 7\n**Lándzsás:** 6\n**Csatabárdos:** 6\n**Felderítő:** 18\n**Paladin:** 19\n**Teuton lovag:** 19\n**Faltörő kos:** 3\n**Katapult:** 3', inline: true },
+                { name: '🏹 **GALL**', value: '**Phalanx:** 5\n**Kardos:** 6\n**Felderítő:** 17\n**Theutat Villám:** 19\n**Druida lovas:** 16\n**Haeduan:** 13\n**Falromboló:** 3\n**Harci-katapult:** 3', inline: true },
+                { name: '🏺 **EGYIPTOMI**', value: '**Rabszolgamilícia:** 7\n**Kőris őr:** 6\n**Khopesh harcos:** 6\n**Sopdu felfedező:** 16\n**Anhur őr:** 14\n**Resheph fogathajtó:** 18\n**Faltörő kos:** 3\n**Kőkatapult:** 3', inline: true },
+                { name: '🏹 **HUN**', value: '**Zsoldos:** 7\n**Íjász:** 6\n**Figyelő:** 14\n**Sztyeppei lovas:** 18\n**Mesterlövész:** 19\n**Martalóc:** 16\n**Faltörő kos:** 3\n**Katapult:** 3', inline: true },
+                { name: '🚛 **KERESKEDŐ**', value: '**Római:** 16 mező/óra\n**Germán:** 12 mező/óra\n**Gall:** 24 mező/óra\n**Egyiptomi:** 12 mező/óra\n**Hun:** 20 mező/óra', inline: false }
             )
-            .setFooter({ text: 'Normál szerver sebességek' })
+            .setFooter({ text: 'Normál szerver sebességek - Minden törzs adatai' })
             .setTimestamp();
 
         message.reply({ embeds: [speedEmbed] });
@@ -204,30 +205,53 @@ client.on('messageCreate', message => {
                 .setColor('#DC143C')
                 .setTitle('🛡️ Római Birodalom')
                 .addFields(
-                    { name: '💪 Erősségek', value: '• Erős védelem\n• Jó építkezési bónuszok\n• Kiegyensúlyozott egységek', inline: true },
-                    { name: '⚖️ Gyengeségek', value: '• Drága egységek\n• Lassabb fejlődés kezdetben', inline: true },
-                    { name: '🏆 Különlegességek', value: '• Kettős építkezés 10-es szinttől\n• Erős védőegységek\n• Stabil gazdaság', inline: false }
+                    { name: '💪 Erősségek', value: '• Erős védelem\n• Jó építkezési bónuszok\n• Kiegyensúlyozott egységek\n• Kettős építkezés', inline: true },
+                    { name: '⚖️ Gyengeségek', value: '• Drága egységek\n• Lassabb fejlődés kezdetben\n• Közepes kereskedő sebesség', inline: true },
+                    { name: '🏆 Különlegességek', value: '• Kettős építkezés 10-es szinttől\n• Erős védőegységek\n• Stabil gazdaság\n• Szenátor (befolyás)', inline: false },
+                    { name: '⚔️ Fő egységek', value: '**Védelem:** Légió, Testőrség\n**Támadás:** Birodalmi, Equites Caesaris\n**Felderítés:** Equites Legati', inline: false }
                 );
         } else if (tribe === 'germán' || tribe === 'teuton') {
             tribeEmbed = new EmbedBuilder()
                 .setColor('#228B22')
                 .setTitle('⚔️ Germán Törzsek')
                 .addFields(
-                    { name: '💪 Erősségek', value: '• Olcsó egységek\n• Jó raiding képesség\n• Erős támadó egységek', inline: true },
-                    { name: '⚖️ Gyengeségek', value: '• Gyenge védelem\n• Lassú kereskedő\n• Kevesebb búza', inline: true },
-                    { name: '🏆 Különlegességek', value: '• Raktár és magtár védelem\n• Foglya ejthető\n• Falak válaszcsapás', inline: false }
+                    { name: '💪 Erősségek', value: '• Olcsó egységek\n• Jó raiding képesség\n• Erős támadó egységek\n• Foglya ejtés', inline: true },
+                    { name: '⚖️ Gyengeségek', value: '• Gyenge védelem\n• Lassú kereskedő\n• Kevesebb búza\n• Drága infrastruktúra', inline: true },
+                    { name: '🏆 Különlegességek', value: '• Raktár és magtár védelem\n• Foglya ejthető\n• Falak válaszcsapás\n• Törzsi vezető (megsemmisítés)', inline: false },
+                    { name: '⚔️ Fő egységek', value: '**Védelem:** Lándzsás, Paladin\n**Támadás:** Buzogányos, Csatabárdos\n**Felderítés:** Felderítő', inline: false }
                 );
         } else if (tribe === 'gall' || tribe === 'gaul') {
             tribeEmbed = new EmbedBuilder()
                 .setColor('#4169E1')
                 .setTitle('🏹 Gall Törzsek')
                 .addFields(
-                    { name: '💪 Erősségek', value: '• Gyors kereskedő\n• Kiváló védőfal\n• Jó felderítés', inline: true },
-                    { name: '⚖️ Gyengeségek', value: '• Drága egységek\n• Lassabb támadó egységek', inline: true },
-                    { name: '🏆 Különlegességek', value: '• Csapdák építhetők\n• Legjobb kereskedő\n• Erős védőegységek', inline: false }
+                    { name: '💪 Erősségek', value: '• Gyors kereskedő\n• Kiváló védőfal\n• Jó felderítés\n• Csapdák', inline: true },
+                    { name: '⚖️ Gyengeségek', value: '• Drága egységek\n• Lassabb támadó egységek\n• Kisebb támadóerő', inline: true },
+                    { name: '🏆 Különlegességek', value: '• Csapdák építhetők\n• Legjobb kereskedő (24 mező/óra)\n• Erős védőegységek\n• Főnök (befolyás)', inline: false },
+                    { name: '⚔️ Fő egységek', value: '**Védelem:** Phalanx, Druida lovas\n**Támadás:** Kardos, Theutat Villám\n**Felderítés:** Felderítő', inline: false }
+                );
+        } else if (tribe === 'egyiptomi' || tribe === 'egyptian') {
+            tribeEmbed = new EmbedBuilder()
+                .setColor('#FFD700')
+                .setTitle('🏺 Egyiptomi Birodalom')
+                .addFields(
+                    { name: '💪 Erősségek', value: '• Gyors fejlődés\n• Olcsó egységek\n• Jó termelési bónuszok\n• Egyedi taktikai lehetőségek', inline: true },
+                    { name: '⚖️ Gyengeségek', value: '• Gyengébb védelem\n• Közepes támadóerő\n• Lassú kereskedő', inline: true },
+                    { name: '🏆 Különlegességek', value: '• Nagy lakóhely kapacitás\n• Gyors építkezés\n• Nomarch (befolyás)\n• Egyedi építmények', inline: false },
+                    { name: '⚔️ Fő egységek', value: '**Védelem:** Kőris őr, Anhur őr\n**Támadás:** Khopesh harcos, Resheph fogathajtó\n**Felderítés:** Sopdu felfedező', inline: false }
+                );
+        } else if (tribe === 'hun' || tribe === 'huns') {
+            tribeEmbed = new EmbedBuilder()
+                .setColor('#8B4513')
+                .setTitle('🏹 Hun Birodalom')
+                .addFields(
+                    { name: '💪 Erősségek', value: '• Gyors lovassági egységek\n• Jó raid képesség\n• Erős távolsági támadás\n• Gyors kereskedő', inline: true },
+                    { name: '⚖️ Gyengeségek', value: '• Gyenge védelem\n• Drága infrastruktúra\n• Kisebb termelési bónuszok', inline: true },
+                    { name: '🏆 Különlegességek', value: '• Nomád életmód előnyök\n• Erős lovasság\n• Kiválasztott (megsemmisítés)\n• Gyors kereskedő (20 mező/óra)', inline: false },
+                    { name: '⚔️ Fő egységek', value: '**Védelem:** Íjász, Martalóc\n**Támadás:** Zsoldos, Sztyeppei lovas\n**Felderítés:** Figyelő', inline: false }
                 );
         } else {
-            return message.reply('❌ Használat: `!törzs [római/germán/gall]`\nPélda: `!törzs római`');
+            return message.reply('❌ Használat: `!törzs [római/germán/gall/egyiptomi/hun]`\nPélda: `!törzs római`');
         }
 
         message.reply({ embeds: [tribeEmbed] });
@@ -338,7 +362,7 @@ client.on('messageCreate', message => {
     // Üzenetek törlése parancs
     else if (command === 'tisztít') {
         // Jogosultság ellenőrzés
-        if (!message.member.permissions.has('MANAGE_MESSAGES')) {
+        if (!message.member.permissions.has('ManageMessages')) {
             return message.reply('❌ Nincs jogosultságod üzenetek törléséhez!');
         }
 

@@ -1,4 +1,4 @@
-// index.js - Fő bot fájl (JAVÍTOTT VERZIÓ)
+// index.js - Fő bot fájl (Új moduláris struktúra)
 const { Client, GatewayIntentBits, EmbedBuilder, ActivityType, Collection } = require('discord.js');
 const config = require('./config');
 
@@ -26,7 +26,6 @@ client.once('ready', () => {
     console.log(`🤖 Bot bejelentkezett mint ${client.user.tag}!`);
     console.log(`📊 ${client.guilds.cache.size} szerveren vagyok jelen`);
     console.log(`🛡️ Védési rendszer aktív!`);
-    console.log(`⚔️ Egyszerűsített seregjelentő aktív!`);
     
     // Bot státusz beállítása
     client.user.setActivity(config.bot.activityText, { type: ActivityType.Watching });
@@ -61,12 +60,12 @@ client.on('messageCreate', async message => {
             await travianCommands.handleTravianCommand(message, command, args);
         }
         
-        // Seregjelentő parancs (ÚJ EGYSZERŰSÍTETT RENDSZER)
+        // Seregjelentő parancs
         else if (['seregjelentő', 'army'].includes(command)) {
             await armyReportCommands.handleArmyCommand(message);
         }
         
-        // Védési kérés parancs
+        // Védési kérés parancs (ÚJ!)
         else if (['védés', 'defense', 'védelem'].includes(command)) {
             await defenseCommands.handleDefenseCommand(message);
         }
@@ -100,12 +99,12 @@ client.on('interactionCreate', async interaction => {
         else if (interaction.isButton()) {
             const customId = interaction.customId;
             
-            // Régi seregjelentő gombok (elavult)
+            // Seregjelentő gombok
             if (customId.startsWith('army_report_')) {
                 await armyReportCommands.handleArmyReportButton(interaction);
             }
             
-            // Védési kérés gombok
+            // Védési kérés gombok (ÚJ!)
             else if (customId === 'defense_request_modal') {
                 await defenseCommands.showDefenseModal(interaction);
             }
@@ -118,28 +117,12 @@ client.on('interactionCreate', async interaction => {
         else if (interaction.isModalSubmit()) {
             const customId = interaction.customId;
             
-            // ÚJ EGYSZERŰSÍTETT SEREGJELENTŐ
-            if (customId.startsWith('complete_army_')) {
-                await armyReportCommands.processCompleteArmyReport(interaction);
-            }
-            
-            // RÉGI LÉPCSŐS SEREGJELENTŐ MODALOK (elavult)
-            else if (customId.startsWith('player_data_')) {
-                await armyReportCommands.processPlayerData(interaction);
-            }
-            else if (customId.startsWith('infantry_data_')) {
-                await armyReportCommands.processInfantryData(interaction);
-            }
-            else if (customId.startsWith('cavalry_data_')) {
-                await armyReportCommands.processCavalryData(interaction);
-            }
-            
-            // Régi seregjelentő modal (elavult)
-            else if (customId.startsWith('army_form_')) {
+            // Seregjelentő modal
+            if (customId.startsWith('army_form_')) {
                 await armyReportCommands.processArmyReport(interaction);
             }
             
-            // Védési kérés modalok
+            // Védési kérés modal (ÚJ!)
             else if (customId === 'defense_form') {
                 await defenseCommands.processDefenseRequest(interaction);
             }
@@ -151,95 +134,13 @@ client.on('interactionCreate', async interaction => {
         console.error('Hiba az interakció kezelésében:', error);
         
         if (!interaction.replied && !interaction.deferred) {
-            try {
-                await interaction.reply({ 
-                    content: '❌ Hiba történt az interakció feldolgozásakor!', 
-                    ephemeral: true 
-                });
-            } catch (replyError) {
-                console.error('Nem sikerült a hibaüzenetet elküldeni:', replyError);
-            }
+            await interaction.reply({ 
+                content: '❌ Hiba történt az interakció feldolgozásakor!', 
+                ephemeral: true 
+            });
         }
     }
 });
-
-// Globális hibakezelés
-client.on('error', error => {
-    console.error('Discord.js hiba:', error);
-});
-
-process.on('unhandledRejection', error => {
-    console.error('Kezeletlen Promise elutasítás:', error);
-});
-
-// Bot indítása
-client.login(config.discord.token); session.tribeData;
-        const infantryUnits = tribeData.units.filter(u => u.type === 'infantry');
-
-        const modal = new ModalBuilder()
-            .setCustomId(`infantry_data_${sessionId}`)
-            .setTitle(`${tribeData.emoji} Gyalogság Egységek`);
-
-        const inputs = [];
-        
-        infantryUnits.slice(0, 5).forEach((unit, index) => {
-            const input = new TextInputBuilder()
-                .setCustomId(`unit_${index}`)
-                .setLabel(`🛡️ ${unit.name}`)
-                .setStyle(TextInputStyle.Short)
-                .setPlaceholder('0')
-                .setRequired(false);
-            
-            inputs.push(new ActionRowBuilder().addComponents(input));
-        });
-
-        modal.addComponents(...inputs);
-        await interaction.showModal(modal);
-
-    } catch (error) {
-        console.error('Hiba a gyalogság modal gomb kezelésénél:', error);
-        await interaction.reply({ content: '❌ Hiba történt!', ephemeral: true });
-    }
-}
-
-async function handleCavalryModalButton(interaction) {
-    try {
-        const sessionId = interaction.customId.replace('show_cavalry_modal_', '');
-        const session = armyReportCommands.activeReports.get(sessionId);
-        
-        if (!session) {
-            await interaction.reply({ content: '❌ Lejárt session! Kezdd újra a jelentést.', ephemeral: true });
-            return;
-        }
-
-        const tribeData = session.tribeData;
-        const cavalryUnits = tribeData.units.filter(u => u.type === 'cavalry');
-
-        const modal = new ModalBuilder()
-            .setCustomId(`cavalry_data_${sessionId}`)
-            .setTitle(`${tribeData.emoji} Lovasság Egységek`);
-
-        const inputs = [];
-        
-        cavalryUnits.slice(0, 5).forEach((unit, index) => {
-            const input = new TextInputBuilder()
-                .setCustomId(`unit_${index}`)
-                .setLabel(`🐎 ${unit.name}`)
-                .setStyle(TextInputStyle.Short)
-                .setPlaceholder('0')
-                .setRequired(false);
-            
-            inputs.push(new ActionRowBuilder().addComponents(input));
-        });
-
-        modal.addComponents(...inputs);
-        await interaction.showModal(modal);
-
-    } catch (error) {
-        console.error('Hiba a lovasság modal gomb kezelésénél:', error);
-        await interaction.reply({ content: '❌ Hiba történt!', ephemeral: true });
-    }
-}
 
 // Globális hibakezelés
 client.on('error', error => {

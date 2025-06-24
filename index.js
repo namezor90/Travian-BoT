@@ -1,4 +1,4 @@
-// Ping parancsconst { Client, GatewayIntentBits, EmbedBuilder, ActivityType } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, ActivityType } = require('discord.js');
 
 // Bot létrehozása
 const client = new Client({

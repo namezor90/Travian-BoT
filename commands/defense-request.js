@@ -1,9 +1,9 @@
-// commands/defense-request.js - Védési kérés rendszer
+// commands/defense-request.js - Védési kérés rendszer (JAVÍTOTT)
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, ChannelType, PermissionFlagsBits } = require('discord.js');
 const config = require('../config');
 const { getTribeData, getDefenseUnits } = require('../utils/tribe-data');
 
-// Aktív védési kérések tárolása
+// Aktív védési kérések tárolása (memóriában)
 const activeDefenseRequests = new Map();
 
 async function handleDefenseCommand(message) {
@@ -113,8 +113,10 @@ async function processDefenseRequest(interaction) {
             ]
         });
 
+        // Kérés ID generálása (timestamp + channel ID utolsó 4 jegye)
+        const requestId = `defense_${Date.now()}_${defenseChannel.id.slice(-4)}`;
+        
         // Védési kérés adatok tárolása
-        const requestId = `defense_${Date.now()}`;
         activeDefenseRequests.set(requestId, {
             channelId: defenseChannel.id,
             requesterId: interaction.user.id,
@@ -141,7 +143,7 @@ async function processDefenseRequest(interaction) {
                 { name: '📊 Státusz', value: '🔴 **Védők keresése**', inline: true }
             )
             .setThumbnail(interaction.user.displayAvatarURL())
-            .setFooter({ text: `Csatorna ID: ${requestId}` })
+            .setFooter({ text: `ID: ${requestId} | Csatorna: ${defenseChannel.id}` })
             .setTimestamp();
 
         // Védési gombok
@@ -187,15 +189,13 @@ async function processDefenseRequest(interaction) {
             .setDescription(`Védési csatorna létrehozva: ${defenseChannel}`)
             .addFields(
                 { name: '📊 Részletek', value: `**Falu:** ${villageName}\n**Támadás:** ${attackTime}`, inline: false },
-                { name: '🎯 Következő lépések', value: '• A csatornában várhatod a védőket\n• Automatikus emlékeztetőket fogsz kapni\n• A védők jelentkezhetnek gombokkal', inline: false }
+                { name: '🎯 Következő lépések', value: '• A csatornában várhatod a védőket\n• Automatikus emlékeztetőket fogsz kapni\n• A védők jelentkezhetnek gombokkal', inline: false },
+                { name: '🆔 Kérés ID', value: `\`${requestId}\``, inline: false }
             )
             .setFooter({ text: 'Alliance Defense System v2.0' })
             .setTimestamp();
 
         await interaction.editReply({ embeds: [confirmEmbed] });
-
-        // Automatikus emlékeztetők beállítása (ha implementálni szeretnéd)
-        // scheduleDefenseReminders(requestId, attackTime);
 
     } catch (error) {
         console.error('Hiba a védési kérés létrehozásakor:', error);
@@ -215,14 +215,25 @@ async function processDefenseRequest(interaction) {
 }
 
 async function handleDefenseActions(interaction) {
-    const [action, type, requestId] = interaction.customId.split('_');
+    const [action, type, ...restParts] = interaction.customId.split('_');
+    const requestId = restParts.join('_'); // Összerakjuk a requestId-t
     
     if (action !== 'defend' && action !== 'defense') return;
 
-    const defenseRequest = activeDefenseRequests.get(requestId);
+    // ÚJ: Ha nincs memóriában, próbáljuk meg rekonstruálni a csatorna alapján
+    let defenseRequest = activeDefenseRequests.get(requestId);
+    
     if (!defenseRequest) {
-        await interaction.reply({ content: '❌ Ez a védési kérés már nem aktív!', ephemeral: true });
-        return;
+        // Próbáljuk meg rekonstruálni az adatokat a csatorna alapján
+        defenseRequest = await reconstructDefenseRequest(interaction, requestId);
+        
+        if (!defenseRequest) {
+            await interaction.reply({ 
+                content: '❌ Ez a védési kérés már nem aktív! (A bot újraindult - kérd egy admint, hogy indítson új kérést)', 
+                ephemeral: true 
+            });
+            return;
+        }
     }
 
     if (action === 'defend') {
@@ -234,6 +245,40 @@ async function handleDefenseActions(interaction) {
         } else if (type === 'close') {
             await closeDefenseRequest(interaction, requestId);
         }
+    }
+}
+
+// ÚJ FUNKCIÓ: Védési kérés rekonstruálása
+async function reconstructDefenseRequest(interaction, requestId) {
+    try {
+        // A csatorna ID-t próbáljuk meg kinyerni a requestId-ből
+        const channelId = interaction.channel?.id;
+        
+        if (!channelId) return null;
+        
+        // Alapértelmezett védési kérés létrehozása
+        const reconstructedRequest = {
+            channelId: channelId,
+            requesterId: null, // Nem tudjuk rekonstruálni
+            playerName: 'Ismeretlen játékos',
+            villageName: 'Ismeretlen falu',
+            attackTime: 'Ismeretlen idő',
+            granaryInfo: 'Nincs adat',
+            wallLevel: 'Nincs adat',
+            defenders: new Map(),
+            createdAt: new Date(),
+            reconstructed: true // Jelöljük, hogy rekonstruált
+        };
+        
+        // Tároljuk a rekonstruált kérést
+        activeDefenseRequests.set(requestId, reconstructedRequest);
+        
+        console.log(`🔄 Védési kérés rekonstruálva: ${requestId}`);
+        return reconstructedRequest;
+        
+    } catch (error) {
+        console.error('Hiba a védési kérés rekonstruálásakor:', error);
+        return null;
     }
 }
 
@@ -284,8 +329,15 @@ async function showDefenseUnitModal(interaction, unitType, requestId) {
 async function processDefenseUnits(interaction) {
     await interaction.deferReply({ ephemeral: true });
 
-    const [, , unitType, requestId] = interaction.customId.split('_');
-    const defenseRequest = activeDefenseRequests.get(requestId);
+    const [, , unitType, ...restParts] = interaction.customId.split('_');
+    const requestId = restParts.join('_');
+    
+    let defenseRequest = activeDefenseRequests.get(requestId);
+    
+    // Ha nincs memóriában, rekonstruáljuk
+    if (!defenseRequest) {
+        defenseRequest = await reconstructDefenseRequest(interaction, requestId);
+    }
     
     if (!defenseRequest) {
         await interaction.editReply({ content: '❌ Ez a védési kérés már nem aktív!' });
@@ -334,7 +386,12 @@ async function processDefenseUnits(interaction) {
 }
 
 async function showDefenseStatus(interaction, requestId) {
-    const defenseRequest = activeDefenseRequests.get(requestId);
+    let defenseRequest = activeDefenseRequests.get(requestId);
+    
+    // Ha nincs memóriában, rekonstruáljuk
+    if (!defenseRequest) {
+        defenseRequest = await reconstructDefenseRequest(interaction, requestId);
+    }
     
     if (!defenseRequest) {
         await interaction.reply({ content: '❌ Ez a védési kérés már nem aktív!', ephemeral: true });
@@ -350,6 +407,12 @@ async function showDefenseStatus(interaction, requestId) {
             { name: '🎯 Kérés részletei', value: `**Falu:** ${defenseRequest.villageName}\n**Támadás:** ${defenseRequest.attackTime}\n**Fal:** ${defenseRequest.wallLevel}`, inline: false },
             { name: '👥 Védők száma', value: `**${defenders.length}** védő jelentkezett`, inline: true }
         );
+
+    if (defenseRequest.reconstructed) {
+        statusEmbed.addFields(
+            { name: '⚠️ Figyelem', value: 'Ez a kérés a bot újraindítása után lett rekonstruálva. Egyes adatok hiányozhatnak.', inline: false }
+        );
+    }
 
     if (defenders.length > 0) {
         const defendersList = defenders.map((defender, index) => 
@@ -369,7 +432,12 @@ async function showDefenseStatus(interaction, requestId) {
 }
 
 async function closeDefenseRequest(interaction, requestId) {
-    const defenseRequest = activeDefenseRequests.get(requestId);
+    let defenseRequest = activeDefenseRequests.get(requestId);
+    
+    // Ha nincs memóriában, rekonstruáljuk
+    if (!defenseRequest) {
+        defenseRequest = await reconstructDefenseRequest(interaction, requestId);
+    }
     
     if (!defenseRequest) {
         await interaction.reply({ content: '❌ Ez a védési kérés már nem aktív!', ephemeral: true });
@@ -377,7 +445,7 @@ async function closeDefenseRequest(interaction, requestId) {
     }
 
     // Csak a kérelmező vagy adminisztrátor zárhatja le
-    if (interaction.user.id !== defenseRequest.requesterId && !interaction.member.permissions.has(PermissionFlagsBits.ManageChannels)) {
+    if (defenseRequest.requesterId && interaction.user.id !== defenseRequest.requesterId && !interaction.member.permissions.has(PermissionFlagsBits.ManageChannels)) {
         await interaction.reply({ content: '❌ Csak a kérelmező vagy egy adminisztrátor zárhatja le a védési kérést!', ephemeral: true });
         return;
     }

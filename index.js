@@ -323,7 +323,7 @@ client.on('interactionCreate', async interaction => {
 });
 
 // Seregjelentő beállítások - IDE ÁLLÍTSD BE A CSATORNA ID-T!
-const ARMY_REPORT_CHANNEL_ID = 'CSATORNA_ID_IDE'; // Vezetők csatorna ID
+const ARMY_REPORT_CHANNEL_ID = '1387002073945473084'; // Vezetők csatorna ID
 const army_reports = new Map(); // Ideiglenes tárolás
 
 // Törzs egységek adatai

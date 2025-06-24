@@ -1,4 +1,4 @@
-// utils/tribe-data.js - Travian törzs adatok
+// utils/tribe-data.js - Travian törzs adatok (JAVÍTOTT VERZIÓ)
 const TRIBE_UNITS = {
     'római': {
         name: 'Római Birodalom',
@@ -69,12 +69,15 @@ const TRIBE_UNITS = {
         color: '#8B4513',
         emoji: '🏹',
         units: [
+            // JAVÍTVA: Hun törzsnek is van gyalogság!
             { name: 'Zsoldos', type: 'infantry', speed: 7, defense: 'medium' },
             { name: 'Íjász', type: 'infantry', speed: 6, defense: 'high' },
+            // Lovasság egységek
             { name: 'Figyelő', type: 'cavalry', speed: 14, defense: 'very_low' },
             { name: 'Sztyeppei lovas', type: 'cavalry', speed: 18, defense: 'low' },
             { name: 'Mesterlövész', type: 'cavalry', speed: 19, defense: 'medium' },
             { name: 'Martalóc', type: 'cavalry', speed: 16, defense: 'high' },
+            // Ostrom egységek
             { name: 'Faltörő kos', type: 'siege', speed: 3, defense: 'very_low' },
             { name: 'Katapult', type: 'siege', speed: 3, defense: 'very_low' }
         ],
@@ -84,7 +87,23 @@ const TRIBE_UNITS = {
 
 // Segédfüggvények
 function getTribeData(tribeName) {
-    return TRIBE_UNITS[tribeName.toLowerCase()] || null;
+    const tribe = TRIBE_UNITS[tribeName.toLowerCase()];
+    if (!tribe) {
+        console.log(`❌ Ismeretlen törzs: ${tribeName}`);
+        return null;
+    }
+    
+    // Debug log
+    console.log(`✅ Törzs betöltve: ${tribe.name}`);
+    console.log(`📊 Egységek: ${tribe.units.length} db`);
+    
+    const infantryCount = tribe.units.filter(u => u.type === 'infantry').length;
+    const cavalryCount = tribe.units.filter(u => u.type === 'cavalry').length;
+    const siegeCount = tribe.units.filter(u => u.type === 'siege').length;
+    
+    console.log(`🛡️ Gyalogság: ${infantryCount} | 🐎 Lovasság: ${cavalryCount} | 🏰 Ostrom: ${siegeCount}`);
+    
+    return tribe;
 }
 
 function getAllTribes() {
@@ -93,7 +112,12 @@ function getAllTribes() {
 
 function getUnitsByType(tribeName, type) {
     const tribe = getTribeData(tribeName);
-    return tribe ? tribe.units.filter(unit => unit.type === type) : [];
+    if (!tribe) return [];
+    
+    const units = tribe.units.filter(unit => unit.type === type);
+    console.log(`🔍 ${type} egységek (${tribeName}): ${units.length} db`);
+    
+    return units;
 }
 
 function getDefenseUnits(tribeName) {
@@ -105,10 +129,24 @@ function getDefenseUnits(tribeName) {
     );
 }
 
+// Új funkció: Egység típus validáció
+function validateTribeUnits(tribeName) {
+    const tribe = getTribeData(tribeName);
+    if (!tribe) return false;
+    
+    const hasInfantry = tribe.units.some(u => u.type === 'infantry');
+    const hasCavalry = tribe.units.some(u => u.type === 'cavalry');
+    
+    console.log(`🔍 Validáció ${tribeName}: Gyalogság=${hasInfantry}, Lovasság=${hasCavalry}`);
+    
+    return hasInfantry && hasCavalry;
+}
+
 module.exports = {
     TRIBE_UNITS,
     getTribeData,
     getAllTribes,
     getUnitsByType,
-    getDefenseUnits
+    getDefenseUnits,
+    validateTribeUnits
 };

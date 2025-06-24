@@ -1,4 +1,5 @@
-const { Client, GatewayIntentBits, EmbedBuilder, ActivityType } = require('discord.js');
+message.reply({ embeds: [commandsEmbed] });
+    }    const { Client, GatewayIntentBits, EmbedBuilder, ActivityType } = require('discord.js');
 
 // Bot létrehozása
 const client = new Client({
@@ -84,6 +85,8 @@ client.on('messageCreate', message => {
                 { name: '!sebesség', value: 'Egység sebességek listája', inline: true },
                 { name: '!tribe [törzs]', value: 'Törzs információk (római/germán/gall/egyiptomi/hun)', inline: true },
                 { name: '🤖 **ÁLTALÁNOS PARANCSOK**', value: '\u200B', inline: false },
+                { name: '!help', value: 'Bot teljes súgó', inline: true },
+                { name: '!parancsok', value: 'Gyors parancs referencia', inline: true },
                 { name: '!ping', value: 'Bot válaszidő', inline: true },
                 { name: '!info', value: 'Szerver információk', inline: true },
                 { name: '!tisztít [szám]', value: 'Üzenetek törlése', inline: true }
@@ -92,6 +95,22 @@ client.on('messageCreate', message => {
             .setTimestamp();
 
         message.reply({ embeds: [helpEmbed] });
+    }
+
+    // Parancsok listája (rövid)
+    else if (command === 'parancsok' || command === 'commands') {
+        const commandsEmbed = new EmbedBuilder()
+            .setColor('#9932CC')
+            .setTitle('📋 Gyors Parancs Referencia')
+            .setDescription('**Travian Bot - Legfontosabb parancsok:**')
+            .addFields(
+                { name: '⚡ **GYORS SZÁMÍTÁSOK**', value: '`!utazás 15.3 19` - Utazási idő\n`!koordináta 0 0 15 20` - Távolság\n`!erőforrás 120 100 80 50 8.5` - Termelés', inline: false },
+                { name: '📚 **INFORMÁCIÓK**', value: '`!sebesség` - Egység sebességek\n`!törzs római` - Törzs részletek\n`!help` - Teljes súgó', inline: false },
+                { name: '⏰ **IDŐZÍTŐ**', value: '`!emlékeztető 30 Farmok!` - Emlékeztető\n`!ping` - Bot státusz', inline: false },
+                { name: '🎯 **ELÉRHETŐ TÖRZSEK**', value: 'római • germán • gall • egyiptomi • hun', inline: false }
+            )
+            .setFooter({ text: 'Részletes leírás: !help parancs' })
+            .setTimestamp();
     }
 
     // Travian utazási idő számítás

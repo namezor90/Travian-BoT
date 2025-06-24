@@ -217,9 +217,14 @@ async function processDefenseRequest(interaction) {
             );
 
         if (parsedAttackTime) {
+            // JAVÍTVA: Helyes időpontok számítása (támadás ELŐTT, nem után)
+            const reminder60 = new Date(parsedAttackTime.getTime() - 60*60*1000);
+            const reminder30 = new Date(parsedAttackTime.getTime() - 30*60*1000);
+            const reminder10 = new Date(parsedAttackTime.getTime() - 10*60*1000);
+            
             confirmEmbed.addFields({
                 name: '⏰ Emlékeztetők',
-                value: `🔔 **60 perc előtt:** <t:${Math.floor((parsedAttackTime.getTime() - 60*60*1000) / 1000)}:F>\n🔔 **30 perc előtt:** <t:${Math.floor((parsedAttackTime.getTime() - 30*60*1000) / 1000)}:F>\n🔔 **10 perc előtt:** <t:${Math.floor((parsedAttackTime.getTime() - 10*60*1000) / 1000)}:F>`,
+                value: `🔔 **60 perc előtt:** <t:${Math.floor(reminder60.getTime() / 1000)}:F>\n🔔 **30 perc előtt:** <t:${Math.floor(reminder30.getTime() / 1000)}:F>\n🔔 **10 perc előtt:** <t:${Math.floor(reminder10.getTime() / 1000)}:F>`,
                 inline: false
             });
         } else {

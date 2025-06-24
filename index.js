@@ -1,4 +1,4 @@
-// index.js - Fő bot fájl (Frissített a lépcsős seregjelentőhöz)
+// index.js - Fő bot fájl (Frissített a gomb kezelésekhez)
 const { Client, GatewayIntentBits, EmbedBuilder, ActivityType, Collection } = require('discord.js');
 const config = require('./config');
 
@@ -118,8 +118,13 @@ client.on('interactionCreate', async interaction => {
         else if (interaction.isModalSubmit()) {
             const customId = interaction.customId;
             
-            // ÚJ LÉPCSŐS SEREGJELENTŐ MODALOK
-            if (customId.startsWith('player_data_')) {
+            // ÚJ EGYSZERŰSÍTETT SEREGJELENTŐ
+            if (customId.startsWith('complete_army_')) {
+                await armyReportCommands.processCompleteArmyReport(interaction);
+            }
+            
+            // RÉGI LÉPCSŐS SEREGJELENTŐ MODALOK (elavult)
+            else if (customId.startsWith('player_data_')) {
                 await armyReportCommands.processPlayerData(interaction);
             }
             else if (customId.startsWith('infantry_data_')) {
@@ -146,13 +151,95 @@ client.on('interactionCreate', async interaction => {
         console.error('Hiba az interakció kezelésében:', error);
         
         if (!interaction.replied && !interaction.deferred) {
-            await interaction.reply({ 
-                content: '❌ Hiba történt az interakció feldolgozásakor!', 
-                ephemeral: true 
-            });
+            try {
+                await interaction.reply({ 
+                    content: '❌ Hiba történt az interakció feldolgozásakor!', 
+                    ephemeral: true 
+                });
+            } catch (replyError) {
+                console.error('Nem sikerült a hibaüzenetet elküldeni:', replyError);
+            }
         }
     }
 });
+
+// Globális hibakezelés
+client.on('error', error => {
+    console.error('Discord.js hiba:', error);
+});
+
+process.on('unhandledRejection', error => {
+    console.error('Kezeletlen Promise elutasítás:', error);
+});
+
+// Bot indítása
+client.login(config.discord.token); session.tribeData;
+        const infantryUnits = tribeData.units.filter(u => u.type === 'infantry');
+
+        const modal = new ModalBuilder()
+            .setCustomId(`infantry_data_${sessionId}`)
+            .setTitle(`${tribeData.emoji} Gyalogság Egységek`);
+
+        const inputs = [];
+        
+        infantryUnits.slice(0, 5).forEach((unit, index) => {
+            const input = new TextInputBuilder()
+                .setCustomId(`unit_${index}`)
+                .setLabel(`🛡️ ${unit.name}`)
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('0')
+                .setRequired(false);
+            
+            inputs.push(new ActionRowBuilder().addComponents(input));
+        });
+
+        modal.addComponents(...inputs);
+        await interaction.showModal(modal);
+
+    } catch (error) {
+        console.error('Hiba a gyalogság modal gomb kezelésénél:', error);
+        await interaction.reply({ content: '❌ Hiba történt!', ephemeral: true });
+    }
+}
+
+async function handleCavalryModalButton(interaction) {
+    try {
+        const sessionId = interaction.customId.replace('show_cavalry_modal_', '');
+        const session = armyReportCommands.activeReports.get(sessionId);
+        
+        if (!session) {
+            await interaction.reply({ content: '❌ Lejárt session! Kezdd újra a jelentést.', ephemeral: true });
+            return;
+        }
+
+        const tribeData = session.tribeData;
+        const cavalryUnits = tribeData.units.filter(u => u.type === 'cavalry');
+
+        const modal = new ModalBuilder()
+            .setCustomId(`cavalry_data_${sessionId}`)
+            .setTitle(`${tribeData.emoji} Lovasság Egységek`);
+
+        const inputs = [];
+        
+        cavalryUnits.slice(0, 5).forEach((unit, index) => {
+            const input = new TextInputBuilder()
+                .setCustomId(`unit_${index}`)
+                .setLabel(`🐎 ${unit.name}`)
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('0')
+                .setRequired(false);
+            
+            inputs.push(new ActionRowBuilder().addComponents(input));
+        });
+
+        modal.addComponents(...inputs);
+        await interaction.showModal(modal);
+
+    } catch (error) {
+        console.error('Hiba a lovasság modal gomb kezelésénél:', error);
+        await interaction.reply({ content: '❌ Hiba történt!', ephemeral: true });
+    }
+}
 
 // Globális hibakezelés
 client.on('error', error => {

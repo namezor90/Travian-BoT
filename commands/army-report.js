@@ -159,7 +159,17 @@ async function showInfantryModal(interaction, sessionId, session) {
         const tribeData = session.tribeData;
         const infantryUnits = tribeData.units.filter(u => u.type === 'infantry');
 
-        console.log(`🛡️ Gyalogság egységek: ${infantryUnits.length} db`);
+        console.log(`🛡️ Gyalogság egységek (${tribeData.name}): ${infantryUnits.length} db`);
+        console.log(`📋 Egységek:`, infantryUnits.map(u => u.name));
+
+        // Ha nincs gyalogság, ugrás a lovasságra
+        if (infantryUnits.length === 0) {
+            console.log(`⚠️ Nincs gyalogság a ${tribeData.name} törzsnél, ugrás a lovasságra`);
+            session.data.infantry = {};
+            session.step = 3;
+            await showCavalryModal(interaction, sessionId, session);
+            return;
+        }
 
         const modal = new ModalBuilder()
             .setCustomId(`infantry_data_${sessionId}`)
@@ -168,7 +178,11 @@ async function showInfantryModal(interaction, sessionId, session) {
         const inputs = [];
         
         // Minden gyalogos egységhez külön mező (maximum 5)
-        infantryUnits.slice(0, 5).forEach((unit, index) => {
+        const unitsToShow = infantryUnits.slice(0, 5);
+        console.log(`📝 Modal mezők létrehozása: ${unitsToShow.length} db`);
+        
+        unitsToShow.forEach((unit, index) => {
+            console.log(`➡️ Mező ${index}: ${unit.name}`);
             const input = new TextInputBuilder()
                 .setCustomId(`unit_${index}`)
                 .setLabel(`🛡️ ${unit.name}`)
@@ -179,12 +193,26 @@ async function showInfantryModal(interaction, sessionId, session) {
             inputs.push(new ActionRowBuilder().addComponents(input));
         });
 
+        if (inputs.length === 0) {
+            throw new Error('Nincsenek input mezők a modalhoz');
+        }
+
         modal.addComponents(...inputs);
         await interaction.showModal(modal);
 
     } catch (error) {
         console.error('Hiba a gyalogság modal megjelenítésekor:', error);
-        await interaction.reply({ content: '❌ Hiba történt a gyalogság űrlap megjelenítésekor!', ephemeral: true });
+        
+        // Próbáljunk fallback módot
+        try {
+            session.data.infantry = {};
+            session.step = 3;
+            console.log(`🔄 Fallback: ugrás lovasságra`);
+            await showCavalryModal(interaction, sessionId, session);
+        } catch (fallbackError) {
+            console.error('Fallback is sikertelen:', fallbackError);
+            await interaction.reply({ content: '❌ Hiba történt a gyalogság űrlap megjelenítésekor!', ephemeral: true });
+        }
     }
 }
 
@@ -235,7 +263,17 @@ async function showCavalryModal(interaction, sessionId, session) {
         const tribeData = session.tribeData;
         const cavalryUnits = tribeData.units.filter(u => u.type === 'cavalry');
 
-        console.log(`🐎 Lovasság egységek: ${cavalryUnits.length} db`);
+        console.log(`🐎 Lovasság egységek (${tribeData.name}): ${cavalryUnits.length} db`);
+        console.log(`📋 Egységek:`, cavalryUnits.map(u => u.name));
+
+        // Ha nincs lovasság, ugrás a végső jelentésre
+        if (cavalryUnits.length === 0) {
+            console.log(`⚠️ Nincs lovasság a ${tribeData.name} törzsnél, ugrás a végső jelentésre`);
+            session.data.cavalry = {};
+            session.step = 4;
+            await finalizeReport(interaction, sessionId, session);
+            return;
+        }
 
         const modal = new ModalBuilder()
             .setCustomId(`cavalry_data_${sessionId}`)
@@ -244,7 +282,11 @@ async function showCavalryModal(interaction, sessionId, session) {
         const inputs = [];
         
         // Minden lovas egységhez külön mező (maximum 5)
-        cavalryUnits.slice(0, 5).forEach((unit, index) => {
+        const unitsToShow = cavalryUnits.slice(0, 5);
+        console.log(`📝 Modal mezők létrehozása: ${unitsToShow.length} db`);
+        
+        unitsToShow.forEach((unit, index) => {
+            console.log(`➡️ Mező ${index}: ${unit.name}`);
             const input = new TextInputBuilder()
                 .setCustomId(`unit_${index}`)
                 .setLabel(`🐎 ${unit.name}`)
@@ -255,12 +297,26 @@ async function showCavalryModal(interaction, sessionId, session) {
             inputs.push(new ActionRowBuilder().addComponents(input));
         });
 
+        if (inputs.length === 0) {
+            throw new Error('Nincsenek input mezők a modalhoz');
+        }
+
         modal.addComponents(...inputs);
         await interaction.showModal(modal);
 
     } catch (error) {
         console.error('Hiba a lovasság modal megjelenítésekor:', error);
-        await interaction.reply({ content: '❌ Hiba történt a lovasság űrlap megjelenítésekor!', ephemeral: true });
+        
+        // Próbáljunk fallback módot
+        try {
+            session.data.cavalry = {};
+            session.step = 4;
+            console.log(`🔄 Fallback: ugrás végső jelentésre`);
+            await finalizeReport(interaction, sessionId, session);
+        } catch (fallbackError) {
+            console.error('Fallback is sikertelen:', fallbackError);
+            await interaction.reply({ content: '❌ Hiba történt a lovasság űrlap megjelenítésekor!', ephemeral: true });
+        }
     }
 }
 

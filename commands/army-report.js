@@ -1,4 +1,4 @@
-// commands/army-report.js - Seregjelentő rendszer (JAVÍTOTT VERZIÓ)
+// commands/army-report.js - Egyszerűsített seregjelentő rendszer (VÉGLEGES VERZIÓ)
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, StringSelectMenuBuilder } = require('discord.js');
 const config = require('../config');
 const { TRIBE_UNITS, getTribeData } = require('../utils/tribe-data');
@@ -48,13 +48,13 @@ async function handleArmyCommand(message) {
 
     const reportEmbed = new EmbedBuilder()
         .setColor(config.colors.armyReport)
-        .setTitle('⚔️ Alliance Seregjelentő v3.0')
-        .setDescription('**🆕 Új lépcsős rendszer!**\n\n**1️⃣ Válaszd ki a törzsedet**\n**2️⃣ Add meg a játékos adatokat**\n**3️⃣ Töltsd ki a gyalogság egységeket**\n**4️⃣ Töltsd ki a lovasság egységeket**\n**5️⃣ Automatikus beküldés**')
+        .setTitle('⚔️ Alliance Seregjelentő v3.1')
+        .setDescription('**🆕 Egyszerűsített rendszer!**\n\n**1️⃣ Válaszd ki a törzsedet**\n**2️⃣ Töltsd ki az űrlapot**\n**3️⃣ Automatikus beküldés**')
         .addFields(
-            { name: '✨ Mi változott?', value: '• Törzsspecifikus egységlista\n• Csak számokat kell írni\n• Könnyebb és gyorsabb', inline: false },
+            { name: '✨ Mi változott?', value: '• Egyszerűbb folyamat\n• Minden egység egy űrlapon\n• Gyorsabb és megbízhatóbb', inline: false },
             { name: '📊 Hova kerül?', value: 'A vezetők csatornájába automatikusan táblázatos formában.', inline: false }
         )
-        .setFooter({ text: 'Alliance Management System v3.0 - Lépcsős jelentés' })
+        .setFooter({ text: 'Alliance Management System v3.1 - Egyszerűsített jelentés' })
         .setTimestamp();
 
     await message.reply({ embeds: [reportEmbed], components: [selectRow] });
@@ -70,26 +70,24 @@ async function handleTribeSelection(interaction) {
             return;
         }
 
-        // Session ID generálása
-        const sessionId = `report_${Date.now()}_${interaction.user.id}`;
-        
-        // Session adatok mentése
-        activeReports.set(sessionId, {
-            userId: interaction.user.id,
-            tribe: selectedTribe,
-            tribeData: tribeData,
-            step: 1,
-            data: {},
-            createdAt: new Date()
-        });
+        console.log(`📊 Törzs kiválasztva: ${tribeData.name}`);
 
-        console.log(`📊 Új session létrehozva: ${sessionId} - ${selectedTribe} törzs`);
+        // Közvetlenül a teljes űrlap megjelenítése
+        await showCompleteArmyModal(interaction, selectedTribe, tribeData);
 
-        // Játékos adatok modal megjelenítése
+    } catch (error) {
+        console.error('Hiba a törzs kiválasztásakor:', error);
+        await interaction.reply({ content: '❌ Hiba történt a törzs kiválasztásakor!', ephemeral: true });
+    }
+}
+
+async function showCompleteArmyModal(interaction, selectedTribe, tribeData) {
+    try {
         const modal = new ModalBuilder()
-            .setCustomId(`player_data_${sessionId}`)
-            .setTitle(`${tribeData.emoji} ${tribeData.name} - Játékos Adatok`);
+            .setCustomId(`complete_army_${selectedTribe}_${Date.now()}`)
+            .setTitle(`${tribeData.emoji} ${tribeData.name} - Seregjelentés`);
 
+        // Játékos adatok
         const playerName = new TextInputBuilder()
             .setCustomId('player_name')
             .setLabel('👤 Játékos neve')
@@ -104,363 +102,155 @@ async function handleTribeSelection(interaction) {
             .setPlaceholder('pl. Erőd (15|25)')
             .setRequired(true);
 
+        // Egység adatok - minden egységet egy szöveges mezőben
+        const allUnits = tribeData.units;
+        const unitNames = allUnits.map(u => u.name).join(', ');
+        
+        const unitsData = new TextInputBuilder()
+            .setCustomId('units_data')
+            .setLabel('⚔️ Egységek (név: darab)')
+            .setStyle(TextInputStyle.Paragraph)
+            .setPlaceholder(`pl. ${allUnits[0]?.name}: 100, ${allUnits[1]?.name}: 50`)
+            .setRequired(false);
+
+        // Megjegyzés
+        const notes = new TextInputBuilder()
+            .setCustomId('notes')
+            .setLabel('📝 Megjegyzések (opcionális)')
+            .setStyle(TextInputStyle.Paragraph)
+            .setPlaceholder('pl. Fejlesztés alatt, új egységek várhatóak...')
+            .setRequired(false);
+
         const rows = [
             new ActionRowBuilder().addComponents(playerName),
-            new ActionRowBuilder().addComponents(villageName)
+            new ActionRowBuilder().addComponents(villageName),
+            new ActionRowBuilder().addComponents(unitsData),
+            new ActionRowBuilder().addComponents(notes)
         ];
 
         modal.addComponents(...rows);
         await interaction.showModal(modal);
 
     } catch (error) {
-        console.error('Hiba a törzs kiválasztásakor:', error);
-        await interaction.reply({ content: '❌ Hiba történt a törzs kiválasztásakor!', ephemeral: true });
+        console.error('Hiba a teljes űrlap megjelenítésekor:', error);
+        await interaction.reply({ content: '❌ Hiba történt az űrlap megjelenítésekor!', ephemeral: true });
     }
 }
 
-async function processPlayerData(interaction) {
+async function processCompleteArmyReport(interaction) {
     try {
-        console.log(`🔍 Modal submit feldolgozása: ${interaction.customId}`);
-        
-        const sessionId = interaction.customId.replace('player_data_', '');
-        console.log(`🆔 Session ID: ${sessionId}`);
-        
-        const session = activeReports.get(sessionId);
-        
-        if (!session) {
-            console.log(`❌ Session nem található: ${sessionId}`);
-            await interaction.reply({ content: '❌ Lejárt session! Kezdd újra a jelentést.', ephemeral: true });
+        await interaction.deferReply({ ephemeral: true });
+
+        // Custom ID feldolgozása
+        const customIdParts = interaction.customId.split('_');
+        const selectedTribe = customIdParts[2];
+        const tribeData = TRIBE_UNITS[selectedTribe];
+
+        if (!tribeData) {
+            await interaction.editReply({ content: '❌ Ismeretlen törzs!' });
             return;
         }
 
-        console.log(`✅ Session megtalálva: ${session.tribe}`);
+        console.log(`📊 Jelentés feldolgozása: ${tribeData.name}`);
 
+        // Adatok kinyerése
         const playerName = interaction.fields.getTextInputValue('player_name');
         const villageName = interaction.fields.getTextInputValue('village_name');
+        const unitsData = interaction.fields.getTextInputValue('units_data') || '';
+        const notes = interaction.fields.getTextInputValue('notes') || '';
 
         // Validáció
         if (!playerName || playerName.trim().length === 0) {
-            await interaction.reply({ content: '❌ Játékos név kötelező!', ephemeral: true });
+            await interaction.editReply({ content: '❌ Játékos név kötelező!' });
             return;
         }
 
         if (!villageName || villageName.trim().length === 0) {
-            await interaction.reply({ content: '❌ Falu név kötelező!', ephemeral: true });
+            await interaction.editReply({ content: '❌ Falu név kötelező!' });
             return;
         }
 
-        // Adatok mentése
-        session.data.playerName = playerName.trim();
-        session.data.villageName = villageName.trim();
-        session.step = 2;
+        // Egységek feldolgozása
+        const units = parseUnitsData(unitsData, tribeData);
 
-        console.log(`📝 Játékos adatok mentve: ${playerName} - ${villageName}`);
+        console.log(`📝 Feldolgozott egységek:`, units);
 
-        // FONTOS: Megerősítő üzenet hogy a modal feldolgozás sikeres
-        await interaction.deferReply({ ephemeral: true });
-
-        // Gyalogság modal megjelenítése
-        await showInfantryModal(interaction, sessionId, session);
+        // Jelentés összeállítása és küldése
+        await sendFinalReport(interaction, tribeData, {
+            playerName: playerName.trim(),
+            villageName: villageName.trim(),
+            units,
+            notes: notes.trim()
+        });
 
     } catch (error) {
-        console.error('Hiba a játékos adatok feldolgozásakor:', error);
-        if (!interaction.replied && !interaction.deferred) {
-            await interaction.reply({ content: '❌ Hiba történt az adatok mentésekor!', ephemeral: true });
+        console.error('Hiba a teljes jelentés feldolgozásakor:', error);
+        
+        if (interaction.deferred) {
+            await interaction.editReply({ content: '❌ Hiba történt a jelentés feldolgozásakor!' });
+        } else {
+            await interaction.reply({ content: '❌ Hiba történt a jelentés feldolgozásakor!', ephemeral: true });
         }
     }
 }
 
-async function showInfantryModal(interaction, sessionId, session) {
-    try {
-        const tribeData = session.tribeData;
-        const infantryUnits = tribeData.units.filter(u => u.type === 'infantry');
+function parseUnitsData(unitsText, tribeData) {
+    const units = {
+        infantry: {},
+        cavalry: {},
+        siege: {}
+    };
 
-        console.log(`🛡️ Gyalogság egységek (${tribeData.name}): ${infantryUnits.length} db`);
-        console.log(`📋 Egységek:`, infantryUnits.map(u => u.name));
+    if (!unitsText || unitsText.trim().length === 0) {
+        return units;
+    }
 
-        // Ha nincs gyalogság, ugrás a lovasságra
-        if (infantryUnits.length === 0) {
-            console.log(`⚠️ Nincs gyalogság a ${tribeData.name} törzsnél, ugrás a lovasságra`);
-            session.data.infantry = {};
-            session.step = 3;
+    // Egységek feldolgozása (név: szám formátumban)
+    const unitEntries = unitsText.split(',').map(entry => entry.trim());
+    
+    unitEntries.forEach(entry => {
+        const match = entry.match(/^(.+?):\s*(\d+)$/);
+        if (match) {
+            const unitName = match[1].trim();
+            const count = parseInt(match[2]);
             
-            // Megerősítő üzenet az ugrásról
-            await interaction.editReply({ 
-                content: `ℹ️ A ${tribeData.name} törzsnél nincs gyalogság, ugrás a lovasságra...`,
-                ephemeral: true 
-            });
+            // Egység keresése a törzs adatokban
+            const unit = tribeData.units.find(u => 
+                u.name.toLowerCase() === unitName.toLowerCase()
+            );
             
-            // Kis várakozás a felhasználó tájékoztatására
-            setTimeout(async () => {
-                await showCavalryModal(interaction, sessionId, session);
-            }, 1500);
-            return;
-        }
-
-        const modal = new ModalBuilder()
-            .setCustomId(`infantry_data_${sessionId}`)
-            .setTitle(`${tribeData.emoji} Gyalogság Egységek`);
-
-        const inputs = [];
-        
-        // Minden gyalogos egységhez külön mező (maximum 5)
-        const unitsToShow = infantryUnits.slice(0, 5);
-        console.log(`📝 Modal mezők létrehozása: ${unitsToShow.length} db`);
-        
-        unitsToShow.forEach((unit, index) => {
-            console.log(`➡️ Mező ${index}: ${unit.name}`);
-            const input = new TextInputBuilder()
-                .setCustomId(`unit_${index}`)
-                .setLabel(`🛡️ ${unit.name}`)
-                .setStyle(TextInputStyle.Short)
-                .setPlaceholder('0')
-                .setRequired(false);
-            
-            inputs.push(new ActionRowBuilder().addComponents(input));
-        });
-
-        if (inputs.length === 0) {
-            throw new Error('Nincsenek input mezők a modalhoz');
-        }
-
-        modal.addComponents(...inputs);
-        
-        // Megerősítő üzenet módosítása
-        await interaction.editReply({ 
-            content: `✅ Játékos adatok mentve! Most töltsd ki a gyalogság egységeket...`,
-            ephemeral: true 
-        });
-        
-        // Modal megjelenítése
-        await interaction.followUp({ 
-            components: [],
-            ephemeral: true
-        });
-        
-        // Modal megjelenítése külön interaction-nel
-        setTimeout(async () => {
-            try {
-                // Új interaction kell a modalhoz
-                const channel = interaction.channel;
-                if (channel) {
-                    const embed = new EmbedBuilder()
-                        .setColor('#4169E1')
-                        .setTitle('🛡️ Gyalogság Egységek')
-                        .setDescription(`Kattints a gombra a gyalogság egységek megadásához!`)
-                        .addFields(
-                            { name: 'Elérhető egységek', value: unitsToShow.map(u => `• ${u.name}`).join('\n'), inline: false }
-                        );
-                    
-                    const button = new ActionRowBuilder()
-                        .addComponents(
-                            new ButtonBuilder()
-                                .setCustomId(`show_infantry_modal_${sessionId}`)
-                                .setLabel('🛡️ Gyalogság megadása')
-                                .setStyle(ButtonStyle.Primary)
-                        );
-                    
-                    await channel.send({ embeds: [embed], components: [button] });
-                }
-            } catch (err) {
-                console.error('Hiba a gyalogság gomb megjelenítésekor:', err);
+            if (unit && count > 0) {
+                units[unit.type][unit.name] = count;
+                console.log(`✅ Egység hozzáadva: ${unit.name} (${unit.type}) - ${count} db`);
+            } else {
+                console.log(`⚠️ Ismeretlen egység vagy nulla érték: ${unitName} - ${count}`);
             }
-        }, 500);
-
-    } catch (error) {
-        console.error('Hiba a gyalogság modal megjelenítésekor:', error);
-        
-        // Próbáljunk fallback módot
-        try {
-            session.data.infantry = {};
-            session.step = 3;
-            console.log(`🔄 Fallback: ugrás lovasságra`);
-            
-            await interaction.editReply({ 
-                content: `⚠️ Hiba a gyalogság űrlapnál, ugrás a lovasságra...`,
-                ephemeral: true 
-            });
-            
-            setTimeout(async () => {
-                await showCavalryModal(interaction, sessionId, session);
-            }, 1500);
-        } catch (fallbackError) {
-            console.error('Fallback is sikertelen:', fallbackError);
-            await interaction.editReply({ 
-                content: '❌ Hiba történt a gyalogság űrlap megjelenítésekor!',
-                ephemeral: true 
-            });
         }
-    }
+    });
+
+    return units;
 }
 
-async function processInfantryData(interaction) {
+async function sendFinalReport(interaction, tribeData, data) {
     try {
-        console.log(`🛡️ Gyalogság adatok feldolgozása: ${interaction.customId}`);
-        
-        const sessionId = interaction.customId.replace('infantry_data_', '');
-        const session = activeReports.get(sessionId);
-        
-        if (!session) {
-            await interaction.reply({ content: '❌ Lejárt session! Kezdd újra a jelentést.', ephemeral: true });
-            return;
-        }
+        const { playerName, villageName, units, notes } = data;
 
-        const tribeData = session.tribeData;
-        const infantryUnits = tribeData.units.filter(u => u.type === 'infantry');
-        
-        // Gyalogság adatok mentése
-        session.data.infantry = {};
-        infantryUnits.slice(0, 5).forEach((unit, index) => {
-            try {
-                const value = interaction.fields.getTextInputValue(`unit_${index}`) || '0';
-                const count = parseInt(value) || 0;
-                if (count > 0) {
-                    session.data.infantry[unit.name] = count;
-                }
-            } catch (fieldError) {
-                console.log(`⚠️ Hiányzó mező: unit_${index}`);
-            }
-        });
-
-        session.step = 3;
-
-        console.log(`📊 Gyalogság adatok mentve:`, session.data.infantry);
-
-        // Lovasság modal megjelenítése
-        await showCavalryModal(interaction, sessionId, session);
-
-    } catch (error) {
-        console.error('Hiba a gyalogság adatok feldolgozásakor:', error);
-        await interaction.reply({ content: '❌ Hiba történt a gyalogság adatok mentésekor!', ephemeral: true });
-    }
-}
-
-async function showCavalryModal(interaction, sessionId, session) {
-    try {
-        const tribeData = session.tribeData;
-        const cavalryUnits = tribeData.units.filter(u => u.type === 'cavalry');
-
-        console.log(`🐎 Lovasság egységek (${tribeData.name}): ${cavalryUnits.length} db`);
-        console.log(`📋 Egységek:`, cavalryUnits.map(u => u.name));
-
-        // Ha nincs lovasság, ugrás a végső jelentésre
-        if (cavalryUnits.length === 0) {
-            console.log(`⚠️ Nincs lovasság a ${tribeData.name} törzsnél, ugrás a végső jelentésre`);
-            session.data.cavalry = {};
-            session.step = 4;
-            await finalizeReport(interaction, sessionId, session);
-            return;
-        }
-
-        const modal = new ModalBuilder()
-            .setCustomId(`cavalry_data_${sessionId}`)
-            .setTitle(`${tribeData.emoji} Lovasság Egységek`);
-
-        const inputs = [];
-        
-        // Minden lovas egységhez külön mező (maximum 5)
-        const unitsToShow = cavalryUnits.slice(0, 5);
-        console.log(`📝 Modal mezők létrehozása: ${unitsToShow.length} db`);
-        
-        unitsToShow.forEach((unit, index) => {
-            console.log(`➡️ Mező ${index}: ${unit.name}`);
-            const input = new TextInputBuilder()
-                .setCustomId(`unit_${index}`)
-                .setLabel(`🐎 ${unit.name}`)
-                .setStyle(TextInputStyle.Short)
-                .setPlaceholder('0')
-                .setRequired(false);
-            
-            inputs.push(new ActionRowBuilder().addComponents(input));
-        });
-
-        if (inputs.length === 0) {
-            throw new Error('Nincsenek input mezők a modalhoz');
-        }
-
-        modal.addComponents(...inputs);
-        await interaction.showModal(modal);
-
-    } catch (error) {
-        console.error('Hiba a lovasság modal megjelenítésekor:', error);
-        
-        // Próbáljunk fallback módot
-        try {
-            session.data.cavalry = {};
-            session.step = 4;
-            console.log(`🔄 Fallback: ugrás végső jelentésre`);
-            await finalizeReport(interaction, sessionId, session);
-        } catch (fallbackError) {
-            console.error('Fallback is sikertelen:', fallbackError);
-            await interaction.reply({ content: '❌ Hiba történt a lovasság űrlap megjelenítésekor!', ephemeral: true });
-        }
-    }
-}
-
-async function processCavalryData(interaction) {
-    try {
-        console.log(`🐎 Lovasság adatok feldolgozása: ${interaction.customId}`);
-        
-        const sessionId = interaction.customId.replace('cavalry_data_', '');
-        const session = activeReports.get(sessionId);
-        
-        if (!session) {
-            await interaction.reply({ content: '❌ Lejárt session! Kezdd újra a jelentést.', ephemeral: true });
-            return;
-        }
-
-        const tribeData = session.tribeData;
-        const cavalryUnits = tribeData.units.filter(u => u.type === 'cavalry');
-        
-        // Lovasság adatok mentése
-        session.data.cavalry = {};
-        cavalryUnits.slice(0, 5).forEach((unit, index) => {
-            try {
-                const value = interaction.fields.getTextInputValue(`unit_${index}`) || '0';
-                const count = parseInt(value) || 0;
-                if (count > 0) {
-                    session.data.cavalry[unit.name] = count;
-                }
-            } catch (fieldError) {
-                console.log(`⚠️ Hiányzó mező: unit_${index}`);
-            }
-        });
-
-        session.step = 4;
-
-        console.log(`📊 Lovasság adatok mentve:`, session.data.cavalry);
-
-        // Végső jelentés összeállítása és beküldése
-        await finalizeReport(interaction, sessionId, session);
-
-    } catch (error) {
-        console.error('Hiba a lovasság adatok feldolgozásakor:', error);
-        await interaction.reply({ content: '❌ Hiba történt a lovasság adatok mentésekor!', ephemeral: true });
-    }
-}
-
-async function finalizeReport(interaction, sessionId, session) {
-    try {
-        await interaction.deferReply({ ephemeral: true });
-
-        const { tribeData, data } = session;
-        const { playerName, villageName, infantry = {}, cavalry = {} } = data;
-
-        console.log(`📊 Végső jelentés összeállítása: ${playerName}`);
-
-        // Ostrom egységek (alapértelmezett: 0)
-        const siege = {};
+        // Összesítő számítások
+        const totalInfantry = Object.values(units.infantry).reduce((a, b) => a + b, 0);
+        const totalCavalry = Object.values(units.cavalry).reduce((a, b) => a + b, 0);
+        const totalSiege = Object.values(units.siege).reduce((a, b) => a + b, 0);
+        const grandTotal = totalInfantry + totalCavalry + totalSiege;
 
         // Táblázatos megjelenítés
-        function createUnitTable(units, emoji) {
-            if (Object.keys(units).length === 0) return `${emoji} *Nincs egység megadva*`;
+        function createUnitTable(unitObj, emoji, title) {
+            if (Object.keys(unitObj).length === 0) return `${emoji} **${title}:** *Nincs egység*`;
             
-            let table = `${emoji} **Egységek:**\n\`\`\`\n`;
+            let table = `${emoji} **${title}:**\n\`\`\`\n`;
             table += '┌─────────────────────┬─────────┐\n';
             table += '│ Egység neve         │ Darab   │\n';
             table += '├─────────────────────┼─────────┤\n';
             
-            for (const [name, count] of Object.entries(units)) {
+            for (const [name, count] of Object.entries(unitObj)) {
                 const paddedName = name.padEnd(19);
                 const paddedCount = count.toString().padStart(7);
                 table += `│ ${paddedName} │ ${paddedCount} │\n`;
@@ -469,12 +259,6 @@ async function finalizeReport(interaction, sessionId, session) {
             table += '└─────────────────────┴─────────┘\n\`\`\`';
             return table;
         }
-
-        // Összesítő számítások
-        const totalInfantry = Object.values(infantry).reduce((a, b) => a + b, 0);
-        const totalCavalry = Object.values(cavalry).reduce((a, b) => a + b, 0);
-        const totalSiege = Object.values(siege).reduce((a, b) => a + b, 0);
-        const grandTotal = totalInfantry + totalCavalry + totalSiege;
 
         // Vezetői jelentés embed
         const leaderReportEmbed = new EmbedBuilder()
@@ -486,22 +270,32 @@ async function finalizeReport(interaction, sessionId, session) {
                 { name: '🏛️ Törzs', value: `${tribeData.emoji} **${tribeData.name}**`, inline: true }
             );
 
-        // Egységek hozzáadása ha vannak
-        if (Object.keys(infantry).length > 0) {
-            const infantryTable = createUnitTable(infantry, '🛡️');
+        // Egységek hozzáadása
+        if (Object.keys(units.infantry).length > 0) {
+            const infantryTable = createUnitTable(units.infantry, '🛡️', 'Gyalogság');
             const lines = infantryTable.split('\n');
             leaderReportEmbed.addFields({ 
-                name: lines[0], 
+                name: lines[0].replace('**', '').replace(':**', ''), 
                 value: lines.slice(1).join('\n'), 
                 inline: false 
             });
         }
 
-        if (Object.keys(cavalry).length > 0) {
-            const cavalryTable = createUnitTable(cavalry, '🐎');
+        if (Object.keys(units.cavalry).length > 0) {
+            const cavalryTable = createUnitTable(units.cavalry, '🐎', 'Lovasság');
             const lines = cavalryTable.split('\n');
             leaderReportEmbed.addFields({ 
-                name: lines[0], 
+                name: lines[0].replace('**', '').replace(':**', ''), 
+                value: lines.slice(1).join('\n'), 
+                inline: false 
+            });
+        }
+
+        if (Object.keys(units.siege).length > 0) {
+            const siegeTable = createUnitTable(units.siege, '🏰', 'Ostrom');
+            const lines = siegeTable.split('\n');
+            leaderReportEmbed.addFields({ 
+                name: lines[0].replace('**', '').replace(':**', ''), 
                 value: lines.slice(1).join('\n'), 
                 inline: false 
             });
@@ -517,6 +311,13 @@ async function finalizeReport(interaction, sessionId, session) {
             { name: '📅 Jelentés időpontja', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true },
             { name: '👨‍💼 Jelentette', value: `<@${interaction.user.id}>`, inline: true }
         );
+
+        // Megjegyzés hozzáadása ha van
+        if (notes.length > 0) {
+            leaderReportEmbed.addFields(
+                { name: '📝 Megjegyzések', value: notes, inline: false }
+            );
+        }
 
         leaderReportEmbed.setThumbnail(interaction.user.displayAvatarURL())
             .setTimestamp();
@@ -542,16 +343,12 @@ async function finalizeReport(interaction, sessionId, session) {
                 .addFields(
                     { name: '📊 Összesítő', value: `**Játékos:** ${playerName}\n**Falu:** ${villageName}\n**Összes egység:** ${grandTotal.toLocaleString()}`, inline: false },
                     { name: '📅 Időpont', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true },
-                    { name: '🆕 Rendszer', value: 'Lépcsős jelentés v3.0', inline: true }
+                    { name: '🆕 Rendszer', value: 'Egyszerűsített jelentés v3.1', inline: true }
                 )
-                .setFooter({ text: 'Alliance Management System v3.0' })
+                .setFooter({ text: 'Alliance Management System v3.1' })
                 .setTimestamp();
 
             await interaction.editReply({ embeds: [confirmEmbed] });
-
-            // Session törlése
-            activeReports.delete(sessionId);
-            console.log(`🗑️ Session törölve: ${sessionId}`);
 
         } catch (channelError) {
             console.error('Hiba a csatorna küldésnél:', channelError);
@@ -570,46 +367,52 @@ async function finalizeReport(interaction, sessionId, session) {
         }
 
     } catch (error) {
-        console.error('Hiba a végső jelentés összeállításakor:', error);
+        console.error('Hiba a végső jelentés küldésekor:', error);
         
-        try {
-            const errorEmbed = new EmbedBuilder()
-                .setColor(config.colors.error)
-                .setTitle('❌ Kritikus hiba!')
-                .setDescription('Nem sikerült összeállítani a jelentést.')
-                .setTimestamp();
+        const errorEmbed = new EmbedBuilder()
+            .setColor(config.colors.error)
+            .setTitle('❌ Kritikus hiba!')
+            .setDescription('Nem sikerült összeállítani a jelentést.')
+            .setTimestamp();
 
-            if (interaction.deferred) {
-                await interaction.editReply({ embeds: [errorEmbed] });
-            } else {
-                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
-            }
-        } catch (replyError) {
-            console.error('Nem sikerült a hibaüzenetet elküldeni:', replyError);
-        }
+        await interaction.editReply({ embeds: [errorEmbed] });
     }
 }
 
-// RÉGI FUNKCIÓK (kompatibilitásért megtartva, de már nem használjuk)
+// RÉGI FUNKCIÓK (kompatibilitásért megtartva)
 async function handleArmyReportButton(interaction) {
-    await interaction.reply({ content: '❌ Ez a funkció elavult. Használd az új lépcsős rendszert!', ephemeral: true });
+    await interaction.reply({ content: '❌ Ez a funkció elavult. Használd az új egyszerűsített rendszert!', ephemeral: true });
 }
 
 async function processArmyReport(interaction) {
-    await interaction.reply({ content: '❌ Ez a funkció elavult. Használd az új lépcsős rendszert!', ephemeral: true });
+    await interaction.reply({ content: '❌ Ez a funkció elavult. Használd az új egyszerűsített rendszert!', ephemeral: true });
+}
+
+// Placeholder funkciók a kompatibilitásért
+async function processPlayerData(interaction) {
+    await interaction.reply({ content: '❌ Ez a funkció elavult. Használd az új egyszerűsített rendszert!', ephemeral: true });
+}
+
+async function processInfantryData(interaction) {
+    await interaction.reply({ content: '❌ Ez a funkció elavult. Használd az új egyszerűsített rendszert!', ephemeral: true });
+}
+
+async function processCavalryData(interaction) {
+    await interaction.reply({ content: '❌ Ez a funkció elavult. Használd az új egyszerűsített rendszert!', ephemeral: true });
 }
 
 module.exports = {
     handleArmyCommand,
     handleTribeSelection,
-    processPlayerData,
-    processInfantryData,
-    processCavalryData,
+    processCompleteArmyReport,
     
     // Régi funkciók (kompatibilitásért)
     handleArmyReportButton,
     processArmyReport,
+    processPlayerData,
+    processInfantryData,
+    processCavalryData,
     
-    // Új export-ok
+    // Export-ok
     activeReports
 };

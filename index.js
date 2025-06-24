@@ -596,69 +596,74 @@ client.on('interactionCreate', async interaction => {
         await interaction.update({ embeds: [confirmEmbed], components: [reportButton] });
     }
 
-    // Seregjelentő modal megnyitása (törzsspecifikus)
-    if (interaction.isButton() && interaction.customId.startsWith('army_report_')) {
-        const selectedTribe = interaction.customId.replace('army_report_', '');
-        const tribeData = TRIBE_UNITS[selectedTribe];
+// Seregjelentő modal megnyitása (törzsspecifikus)
+if (interaction.isButton() && interaction.customId.startsWith('army_report_')) {
+   try {
+       const selectedTribe = interaction.customId.replace('army_report_', '');
+       const tribeData = TRIBE_UNITS[selectedTribe];
+       
+       const modal = new ModalBuilder()
+           .setCustomId(`army_form_${selectedTribe}`)
+           .setTitle(`${tribeData.emoji} ${tribeData.name} - Seregjelentő`);
 
-        const modal = new ModalBuilder()
-            .setCustomId(`army_form_${selectedTribe}`)
-            .setTitle(`${tribeData.emoji} ${tribeData.name} - Seregjelentő`);
+       // Alapadatok
+       const playerName = new TextInputBuilder()
+           .setCustomId('player_name')
+           .setLabel('👤 Játékos neve')
+           .setStyle(TextInputStyle.Short)
+           .setPlaceholder('pl. Namezor90')
+           .setRequired(true);
 
-        // Alapadatok
-        const playerName = new TextInputBuilder()
-            .setCustomId('player_name')
-            .setLabel('👤 Játékos neve')
-            .setStyle(TextInputStyle.Short)
-            .setPlaceholder('pl. Namezor90')
-            .setRequired(true);
+       const villageName = new TextInputBuilder()
+           .setCustomId('village_name')
+           .setLabel('🏘️ Falu neve és koordinátái')
+           .setStyle(TextInputStyle.Short)
+           .setPlaceholder('pl. Erőd (15|25)')
+           .setRequired(true);
 
-        const villageName = new TextInputBuilder()
-            .setCustomId('village_name')
-            .setLabel('🏘️ Falu neve és koordinátái')
-            .setStyle(TextInputStyle.Short)
-            .setPlaceholder('pl. Erőd (15|25)')
-            .setRequired(true);
+       // Gyalogság egységek
+       const infantryUnits = tribeData.units.filter(u => u.type === 'infantry');
+       const infantry = new TextInputBuilder()
+           .setCustomId('infantry')
+           .setLabel(`🛡️ Gyalogság (${infantryUnits.map(u => u.name).join(', ')})`)
+           .setStyle(TextInputStyle.Short)
+           .setPlaceholder(`pl. ${infantryUnits.map((u, i) => `${u.name}: ${(i+1)*50}`).join(', ')}`)
+           .setRequired(false);
 
-        // Gyalogság egységek
-        const infantryUnits = tribeData.units.filter(u => u.type === 'infantry');
-        const infantry = new TextInputBuilder()
-            .setCustomId('infantry')
-            .setLabel(`🛡️ Gyalogság (${infantryUnits.map(u => u.name).join(', ')})`)
-            .setStyle(TextInputStyle.Short)
-            .setPlaceholder(`pl. ${infantryUnits.map((u, i) => `${u.name}: ${(i+1)*50}`).join(', ')}`)
-            .setRequired(false);
+       // Lovasság egységek
+       const cavalryUnits = tribeData.units.filter(u => u.type === 'cavalry');
+       const cavalry = new TextInputBuilder()
+           .setCustomId('cavalry')
+           .setLabel(`🐎 Lovasság (${cavalryUnits.map(u => u.name).join(', ')})`)
+           .setStyle(TextInputStyle.Paragraph)
+           .setPlaceholder(`pl. ${cavalryUnits.map((u, i) => `${u.name}: ${(i+1)*20}`).join(', ')}`)
+           .setRequired(false);
 
-        // Lovasság egységek
-        const cavalryUnits = tribeData.units.filter(u => u.type === 'cavalry');
-        const cavalry = new TextInputBuilder()
-            .setCustomId('cavalry')
-            .setLabel(`🐎 Lovasság (${cavalryUnits.map(u => u.name).join(', ')})`)
-            .setStyle(TextInputStyle.Paragraph)
-            .setPlaceholder(`pl. ${cavalryUnits.map((u, i) => `${u.name}: ${(i+1)*20}`).join(', ')}`)
-            .setRequired(false);
+       // Ostromgépek
+       const siegeUnits = tribeData.units.filter(u => u.type === 'siege');
+       const siege = new TextInputBuilder()
+           .setCustomId('siege')
+           .setLabel(`🏰 Ostromgépek (${siegeUnits.map(u => u.name).join(', ')})`)
+           .setStyle(TextInputStyle.Short)
+           .setPlaceholder(`pl. ${siegeUnits.map((u, i) => `${u.name}: ${(i+1)*5}`).join(', ')}`)
+           .setRequired(false);
 
-        // Ostromgépek
-        const siegeUnits = tribeData.units.filter(u => u.type === 'siege');
-        const siege = new TextInputBuilder()
-            .setCustomId('siege')
-            .setLabel(`🏰 Ostromgépek (${siegeUnits.map(u => u.name).join(', ')})`)
-            .setStyle(TextInputStyle.Short)
-            .setPlaceholder(`pl. ${siegeUnits.map((u, i) => `${u.name}: ${(i+1)*5}`).join(', ')}`)
-            .setRequired(false);
+       // Sorok hozzáadása
+       const rows = [
+           new ActionRowBuilder().addComponents(playerName),
+           new ActionRowBuilder().addComponents(villageName),
+           new ActionRowBuilder().addComponents(infantry),
+           new ActionRowBuilder().addComponents(cavalry),
+           new ActionRowBuilder().addComponents(siege)
+       ];
 
-        // Sorok hozzáadása
-        const rows = [
-            new ActionRowBuilder().addComponents(playerName),
-            new ActionRowBuilder().addComponents(villageName),
-            new ActionRowBuilder().addComponents(infantry),
-            new ActionRowBuilder().addComponents(cavalry),
-            new ActionRowBuilder().addComponents(siege)
-        ];
-
-        modal.addComponents(...rows);
-        await interaction.showModal(modal);
-    }
+       modal.addComponents(...rows);
+       await interaction.showModal(modal);
+   } catch (error) {
+       console.error('Modal hiba:', error);
+       await interaction.reply({ content: '❌ Hiba az űrlap megnyitásakor!', ephemeral: true });
+   }
+}
 
     // Seregjelentő form feldolgozása (törzsspecifikus)
     if (interaction.isModalSubmit() && interaction.customId.startsWith('army_form_')) {

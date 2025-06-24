@@ -1,4 +1,4 @@
-// config.js - Bot konfigurációs fájl
+// config.js - Bot konfigurációs fájl (JAVÍTOTT VERZIÓ)
 module.exports = {
     // Discord beállítások
     discord: {
@@ -9,15 +9,16 @@ module.exports = {
 
     // Csatorna ID-k
     channels: {
-        armyReports: process.env.ARMY_REPORT_CHANNEL_ID || 'CSATORNA_ID_IDE',
-        defenseCategory: process.env.DEFENSE_CATEGORY_ID || 'KATEGORIA_ID_IDE', // Védési csatornák kategóriája
-        leadershipRole: process.env.LEADERSHIP_ROLE_ID || 'VEZETO_SZEREP_ID' // Vezetői szerep
+        // FONTOS: Cseréld ki ezeket a valós csatorna ID-kra!
+        armyReports: process.env.ARMY_REPORT_CHANNEL_ID || '1234567890123456789', // Seregjelentések csatornája
+        defenseCategory: process.env.DEFENSE_CATEGORY_ID || '1234567890123456789', // Védési csatornák kategóriája
+        leadershipRole: process.env.LEADERSHIP_ROLE_ID || '1234567890123456789' // Vezetői szerep
     },
 
     // Bot beállítások
     bot: {
         prefix: '!',
-        version: '2.0',
+        version: '3.0',
         activityText: '!help parancsot | Travian segítő',
         maxReminderMinutes: 1440 // 24 óra
     },
@@ -38,5 +39,12 @@ module.exports = {
         warning: '#FFD700',
         defense: '#4169E1',
         armyReport: '#FF6B35'
+    },
+
+    // Debug beállítások
+    debug: {
+        enabled: true, // Debug üzenetek bekapcsolása
+        logInteractions: true, // Interakciók logolása
+        logSessions: true // Session adatok logolása
     }
 };

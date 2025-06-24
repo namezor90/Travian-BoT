@@ -1,4 +1,4 @@
-// Ping parancsconst { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
+// Ping parancsconst { Client, GatewayIntentBits, EmbedBuilder, ActivityType } = require('discord.js');
 
 // Bot létrehozása
 const client = new Client({
@@ -16,7 +16,7 @@ client.once('ready', () => {
     console.log(`📊 ${client.guilds.cache.size} szerveren vagyok jelen`);
     
     // Bot státusz beállítása
-    client.user.setActivity('!help parancsot', { type: 'WATCHING' });
+    client.user.setActivity('!help parancsot | Travian segítő', { type: ActivityType.Watching });
 });
 
 // Új tag csatlakozás
